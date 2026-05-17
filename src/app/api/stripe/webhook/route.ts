@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase-server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-04-10' })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-03-31.basil' as any })
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
 
     case 'checkout.session.completed': {
-      const session = event.data.object as Stripe.CheckoutSession
+      const session = event.data.object as any
       const orgId = session.metadata?.org_id
       if (!orgId) break
       await supabase.from('organizations').update({
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     case 'customer.subscription.updated':
     case 'customer.subscription.created': {
-      const sub = event.data.object as Stripe.Subscription
+      const sub = event.data.object as any
       const orgId = sub.metadata?.org_id
       if (!orgId) break
       const priceId = sub.items.data[0]?.price.id
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     case 'invoice.payment_failed': {
-      const invoice = event.data.object as Stripe.Invoice
+      const invoice = event.data.object as any
       const subId = invoice.subscription as string
       if (!subId) break
       const { data: org } = await supabase
