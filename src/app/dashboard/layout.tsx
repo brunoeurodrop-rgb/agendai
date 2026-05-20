@@ -1,12 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import {
   LayoutDashboard, Calendar, Plus, MessageCircle, Users,
   Scissors, UserCheck, Wallet, BarChart2, Bell, Star,
-  LogOut, Menu, X, ChevronLeft
+  LogOut, Menu, X, ChevronLeft, Percent
 } from 'lucide-react'
 import TrialBanner from '@/components/TrialBanner'
 
@@ -19,6 +19,7 @@ const nav = [
   { label: 'Servicos',      href: '/servicos',      icon: Scissors,        group: 'Cadastros' },
   { label: 'Profissionais', href: '/profissionais', icon: UserCheck,       group: 'Cadastros' },
   { label: 'Financeiro',    href: '/financeiro',    icon: Wallet,          group: 'Gestao' },
+  { label: 'Comissoes',     href: '/comissoes',     icon: Percent,         group: 'Gestao' },
   { label: 'Relatorios',    href: '/relatorios',    icon: BarChart2,       group: 'Gestao' },
   { label: 'Notificacoes',  href: '/notificacoes',  icon: Bell,            group: 'Gestao' },
 ]
@@ -31,7 +32,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const supabase = createClient()
   const [open, setOpen] = useState(false)
+  const [dateStr, setDateStr] = useState('')
   const showBack = !ROOT_PAGES.includes(pathname)
+
+  useEffect(() => {
+    setDateStr(new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))
+  }, [])
 
   async function logout() {
     await supabase.auth.signOut()
@@ -89,10 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       )}
       <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Banner de trial/vencimento */}
         <TrialBanner />
-
-        {/* Topbar */}
         <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
             <button className="md:hidden text-gray-500 hover:text-gray-900" onClick={() => setOpen(o => !o)}>
@@ -105,15 +108,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 Voltar
               </button>
             ) : (
-              <div className="text-sm text-gray-400 hidden md:block">
-                {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </div>
+              <div className="text-sm text-gray-400 hidden md:block">{dateStr}</div>
             )}
           </div>
           <div className="md:hidden text-lg font-bold text-brand">Agenda<span className="text-gray-900">AI</span></div>
           <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark text-xs font-semibold flex items-center justify-center">BP</div>
         </div>
-
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           {children}
         </main>
