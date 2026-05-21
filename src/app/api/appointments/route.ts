@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase-server'
+import { sendWhatsAppMessage, buildMessage } from '@/lib/whatsapp'
 
 export async function POST(req: NextRequest) {
   try {
     const supabase = createServerSupabaseClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
     const body = await req.json()
     const { customer_id, professional_id, service_id, starts_at, notes } = body
@@ -14,7 +15,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
     }
 
-    // Buscar duração do serviço para calcular ends_at
     const { data: service } = await supabase
       .from('services')
       .select('duration_min')
@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
     const startsAt = new Date(starts_at)
     const endsAt = new Date(startsAt.getTime() + service.duration_min * 60000)
 
-    // Verificar conflito de horário
     const { data: conflict } = await supabase
       .from('appointments')
       .select('id')
@@ -39,16 +38,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Horário já ocupado para este profissional' }, { status: 409 })
     }
 
-    // Buscar org_id do usuário
     const { data: profile } = await supabase
       .from('profiles')
       .select('org_id')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (!profile) return NextResponse.json({ error: 'Perfil não encontrado' }, { status: 404 })
 
-    // Criar agendamento
     const { data: appt, error } = await supabase
       .from('appointments')
       .insert({
@@ -68,13 +65,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao criar agendamento' }, { status: 500 })
     }
 
-    // Disparar mensagem de confirmação no WhatsApp (async, não bloqueia resposta)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    fetch(`${baseUrl}/api/whatsapp/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ appointmentId: appt.id, type: 'confirmation' }),
-    }).catch(console.error)
+    // Enviar WhatsApp diretamente — sem fetch interno
+    try {
+      const adminSupabase = createAdminSupabaseClient()
+
+      const [customerRes, professionalRes, serviceRes, orgRes] = await Promise.all([
+        adminSupabase.from('customers').select('name, phone').eq('id', customer_id).single(),
+        adminSupabase.from('professionals').select('name').eq('id', professional_id).single(),
+        adminSupabase.from('services').select('name').eq('id', service_id).single(),
+        adminSupabase.from('organizations').select('name').eq('id', profile.org_id).single(),
+      ])
+
+      const message = buildMessage('confirmation', {
+        customerName: customerRes.data?.name || 'Cliente',
+        serviceName: serviceRes.data?.name || 'Serviço',
+        professionalName: professionalRes.data?.name || 'Profissional',
+        startsAt: startsAt.toISOString(),
+        orgName: orgRes.data?.name || 'Nosso estabelecimento',
+      })
+
+      const phone = customerRes.data?.phone || ''
+      const sent = await sendWhatsAppMessage(phone, message)
+
+      await adminSupabase.from('messages_log').insert({
+        org_id: profile.org_id,
+        appointment_id: appt.id,
+        type: 'confirmation',
+        phone,
+        message,
+        status: sent ? 'sent' : 'failed',
+        sent_at: sent ? new Date().toISOString() : null,
+      })
+
+      if (sent) {
+        await adminSupabase.from('appointments').update({ wa_confirmation_sent: true }).eq('id', appt.id)
+      }
+
+      console.log('[WhatsApp] Confirmação enviada:', sent)
+    } catch (waErr) {
+      console.error('[WhatsApp] Erro ao enviar confirmação:', waErr)
+    }
 
     return NextResponse.json({ success: true, appointment: appt })
   } catch (err) {
