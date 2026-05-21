@@ -26,6 +26,7 @@ function buildMessage(type: string, data: {
 async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
   const instanceId = process.env.ZAPI_INSTANCE_ID
   const token = process.env.ZAPI_TOKEN
+  const clientToken = process.env.ZAPI_CLIENT_TOKEN
 
   if (!instanceId || !token) {
     console.log(`[WhatsApp SIMULADO] Para: ${phone}\n${message}`)
@@ -33,24 +34,28 @@ async function sendWhatsApp(phone: string, message: string): Promise<boolean> {
   }
 
   try {
-    // Formatar número — remover tudo exceto dígitos e garantir código do país
     let number = phone.replace(/\D/g, '')
     if (!number.startsWith('55')) number = '55' + number
 
     const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+
+    if (clientToken) {
+      headers['Client-Token'] = clientToken
+    }
+
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phone: number,
-        message: message,
-      }),
+      headers,
+      body: JSON.stringify({ phone: number, message }),
     })
 
     const data = await res.json()
     console.log('[Z-API] Resposta:', JSON.stringify(data))
-    return res.ok
+    return res.ok && !data.error
   } catch (err) {
     console.error('[WhatsApp] Erro ao enviar:', err)
     return false
@@ -61,7 +66,6 @@ export async function POST(req: NextRequest) {
   try {
     const { appointmentId, type, phone: directPhone, message: directMessage } = await req.json()
 
-    // Envio direto (sem appointmentId) — para testes
     if (directPhone && directMessage) {
       const sent = await sendWhatsApp(directPhone, directMessage)
       return NextResponse.json({ success: sent })
@@ -113,7 +117,7 @@ export async function POST(req: NextRequest) {
       await supabase.from('appointments').update({ [flagMap[type]]: true }).eq('id', appointmentId)
     }
 
-    return NextResponse.json({ success: sent, message: sent ? 'Mensagem enviada' : 'Falha no envio' })
+    return NextResponse.json({ success: sent })
   } catch (err) {
     console.error('[API WhatsApp]', err)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
