@@ -126,7 +126,7 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 truncate">{a.customer?.name}</div>
                       <div className="text-xs text-gray-400">
-                        {format(new Date(a.starts_at), 'HH:mm')} · {a.service?.name} · {a.professional?.name}
+                        {new Date(a.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })} · {a.service?.name} · {a.professional?.name}
                       </div>
                     </div>
                     <span className={s.cls}>{s.label}</span>

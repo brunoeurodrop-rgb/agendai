@@ -144,7 +144,7 @@ export default function AgendaPage() {
                         <div>
                           <div className="font-medium text-sm text-gray-900">{(a.customer as any)?.name}</div>
                           <div className="text-xs text-gray-400">
-                            {format(new Date(a.starts_at), 'HH:mm')} · {(a.service as any)?.name} · {(a.professional as any)?.name}
+                            {new Date(a.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })} · {(a.service as any)?.name} · {(a.professional as any)?.name}
                           </div>
                         </div>
                       </div>
