@@ -15,22 +15,22 @@ export async function POST(req: NextRequest) {
 
     const supabase = createAdminSupabaseClient()
 
-    // Verificar se e-mail já existe
-    const { data: existingUsers } = await supabase.auth.admin.listUsers()
-    const emailExists = existingUsers?.users?.some((u: any) => u.email === email)
-    if (emailExists) {
-      return NextResponse.json({ error: 'EMAIL_EXISTS' }, { status: 409 })
-    }
-
-    // Criar usuário no Auth com confirmação automática
+    // Criar usuário com confirmação automática
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
     })
 
-    if (authError || !authData.user) {
-      return NextResponse.json({ error: 'Erro ao criar conta: ' + authError?.message }, { status: 500 })
+    if (authError) {
+      if (authError.message.includes('already been registered') || authError.message.includes('already registered')) {
+        return NextResponse.json({ error: 'EMAIL_EXISTS' }, { status: 409 })
+      }
+      return NextResponse.json({ error: authError.message }, { status: 500 })
+    }
+
+    if (!authData.user) {
+      return NextResponse.json({ error: 'Erro ao criar conta' }, { status: 500 })
     }
 
     const userId = authData.user.id
@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true })
-  } catch (err) {
+  } catch (err: any) {
     console.error('[Register]', err)
-    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Erro interno' }, { status: 500 })
   }
 }
