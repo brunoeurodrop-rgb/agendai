@@ -35,77 +35,43 @@ export default function LoginPage() {
     }
     setLoading(true)
 
-    // 1. Criar usuário no Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        company: form.company,
+      }),
+    })
+
+    const data = await res.json()
+    setLoading(false)
+
+    if (!res.ok) {
+      if (data.error === 'EMAIL_EXISTS') {
+        toast.error('Este e-mail já está cadastrado. Faça login.')
+        setMode('login')
+        return
+      }
+      toast.error(data.error || 'Erro ao criar conta. Tente novamente.')
+      return
+    }
+
+    // Login automático após cadastro
+    const { error: loginError } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
     })
 
-    if (authError) {
-      if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
-        toast.error('Este e-mail já está cadastrado. Faça login.')
-        setMode('login')
-      } else {
-        toast.error('Erro ao criar conta: ' + authError.message)
-      }
-      setLoading(false)
-      return
-    }
-
-    if (!authData.user) {
-      toast.error('Erro ao criar conta. Tente novamente.')
-      setLoading(false)
-      return
-    }
-
-    // Verificar se perfil já existe (usuário criado antes mas sem perfil)
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('id', authData.user.id)
-      .maybeSingle()
-
-    if (existingProfile) {
-      toast.success('Conta já configurada! Entrando...')
-      setLoading(false)
-      router.push('/dashboard')
-      return
-    }
-
-    // 2. Criar organização com slug único usando UUID
-    const uniqueSlug = `org-${authData.user.id.slice(0, 8)}`
-
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .insert({ name: form.company, slug: uniqueSlug, plan: 'trial' })
-      .select()
-      .single()
-
-    if (orgError || !org) {
-      console.error('Erro org:', orgError)
-      toast.error('Erro ao configurar empresa. Tente novamente.')
-      setLoading(false)
-      return
-    }
-
-    // 3. Criar perfil
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: authData.user.id,
-      org_id: org.id,
-      email: form.email,
-      name: form.name,
-      role: 'owner',
-    })
-
-    if (profileError) {
-      console.error('Erro perfil:', profileError)
-      toast.error('Erro ao configurar perfil. Tente novamente.')
-      setLoading(false)
+    if (loginError) {
+      toast.error('Conta criada! Faça login para continuar.')
+      setMode('login')
       return
     }
 
     toast.success('Conta criada! Bem-vindo ao AgendaAI 🎉')
-    setLoading(false)
     router.push('/dashboard')
   }
 
