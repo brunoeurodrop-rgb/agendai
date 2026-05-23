@@ -35,29 +35,14 @@ export default function LoginPage() {
     }
     setLoading(true)
 
-    // Verificar se e-mail já existe
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', form.email)
-      .maybeSingle()
-
-    if (existing) {
-      toast.error('Este e-mail já está cadastrado. Faça login.')
-      setMode('login')
-      setLoading(false)
-      return
-    }
-
-    const slug = form.company.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now()
-
+    // 1. Criar usuário no Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
     })
 
     if (authError) {
-      if (authError.message.includes('already registered')) {
+      if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
         toast.error('Este e-mail já está cadastrado. Faça login.')
         setMode('login')
       } else {
@@ -73,17 +58,37 @@ export default function LoginPage() {
       return
     }
 
+    // Verificar se perfil já existe (usuário criado antes mas sem perfil)
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', authData.user.id)
+      .maybeSingle()
+
+    if (existingProfile) {
+      toast.success('Conta já configurada! Entrando...')
+      setLoading(false)
+      router.push('/dashboard')
+      return
+    }
+
+    // 2. Criar organização com slug único usando UUID
+    const uniqueSlug = `org-${authData.user.id.slice(0, 8)}`
+
     const { data: org, error: orgError } = await supabase
       .from('organizations')
-      .insert({ name: form.company, slug, plan: 'trial' })
-      .select().single()
+      .insert({ name: form.company, slug: uniqueSlug, plan: 'trial' })
+      .select()
+      .single()
 
     if (orgError || !org) {
-      toast.error('Erro ao criar empresa. Tente novamente.')
+      console.error('Erro org:', orgError)
+      toast.error('Erro ao configurar empresa. Tente novamente.')
       setLoading(false)
       return
     }
 
+    // 3. Criar perfil
     const { error: profileError } = await supabase.from('profiles').insert({
       id: authData.user.id,
       org_id: org.id,
@@ -93,6 +98,7 @@ export default function LoginPage() {
     })
 
     if (profileError) {
+      console.error('Erro perfil:', profileError)
       toast.error('Erro ao configurar perfil. Tente novamente.')
       setLoading(false)
       return
