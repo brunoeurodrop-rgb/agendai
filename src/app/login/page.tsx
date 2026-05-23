@@ -15,12 +15,14 @@ export default function LoginPage() {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
   async function handleLogin() {
+    if (!form.email || !form.password) { toast.error('Preencha e-mail e senha'); return }
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({
       email: form.email,
       password: form.password,
     })
-    if (error) { toast.error('E-mail ou senha incorretos'); setLoading(false); return }
+    setLoading(false)
+    if (error) { toast.error('E-mail ou senha incorretos'); return }
     router.push('/dashboard')
   }
 
@@ -28,56 +30,94 @@ export default function LoginPage() {
     if (!form.name || !form.email || !form.password || !form.company) {
       toast.error('Preencha todos os campos'); return
     }
+    if (form.password.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres'); return
+    }
     setLoading(true)
-    const slug = form.company.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+
+    // Verificar se e-mail já existe
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', form.email)
+      .maybeSingle()
+
+    if (existing) {
+      toast.error('Este e-mail já está cadastrado. Faça login.')
+      setMode('login')
+      setLoading(false)
+      return
+    }
+
+    const slug = form.company.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Date.now()
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
     })
-    if (authError || !authData.user) {
-      toast.error(authError?.message || 'Erro ao criar conta'); setLoading(false); return
+
+    if (authError) {
+      if (authError.message.includes('already registered')) {
+        toast.error('Este e-mail já está cadastrado. Faça login.')
+        setMode('login')
+      } else {
+        toast.error('Erro ao criar conta: ' + authError.message)
+      }
+      setLoading(false)
+      return
     }
+
+    if (!authData.user) {
+      toast.error('Erro ao criar conta. Tente novamente.')
+      setLoading(false)
+      return
+    }
+
     const { data: org, error: orgError } = await supabase
       .from('organizations')
-      .insert({ name: form.company, slug: `${slug}-${Date.now()}`, plan: 'trial' })
+      .insert({ name: form.company, slug, plan: 'trial' })
       .select().single()
+
     if (orgError || !org) {
-      toast.error('Erro ao criar empresa'); setLoading(false); return
+      toast.error('Erro ao criar empresa. Tente novamente.')
+      setLoading(false)
+      return
     }
-    await supabase.from('profiles').insert({
+
+    const { error: profileError } = await supabase.from('profiles').insert({
       id: authData.user.id,
       org_id: org.id,
       email: form.email,
       name: form.name,
       role: 'owner',
     })
+
+    if (profileError) {
+      toast.error('Erro ao configurar perfil. Tente novamente.')
+      setLoading(false)
+      return
+    }
+
     toast.success('Conta criada! Bem-vindo ao AgendaAI 🎉')
+    setLoading(false)
     router.push('/dashboard')
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-emerald-50/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-3xl font-bold text-brand mb-1">
-            Agenda<span className="text-gray-900">AI</span>
-          </div>
+          <div className="text-3xl font-bold text-brand mb-1">Agenda<span className="text-gray-900">AI</span></div>
           <p className="text-gray-500 text-sm">Agendamento automático com WhatsApp</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
-          {/* Tabs */}
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg mb-6">
             {(['login', 'register'] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
+              <button key={m} onClick={() => setMode(m)}
                 className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
                   mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
+                }`}>
                 {m === 'login' ? 'Entrar' : 'Criar conta grátis'}
               </button>
             ))}
@@ -121,7 +161,6 @@ export default function LoginPage() {
           )}
         </div>
 
-        {/* Prova social */}
         <div className="grid grid-cols-3 gap-4 mt-6 text-center">
           {[['98%', 'Redução de faltas'], ['+3h', 'Economizadas/dia'], ['2min', 'Para configurar']].map(([v, l]) => (
             <div key={l} className="bg-white/70 rounded-xl p-3 border border-gray-100">

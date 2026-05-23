@@ -3,8 +3,14 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { format, startOfDay, endOfDay, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CalendarCheck, Users, Wallet, X, TrendingUp, MessageCircle, Clock } from 'lucide-react'
+import { CalendarCheck, Users, Wallet, X, MessageCircle, Clock } from 'lucide-react'
 import type { Appointment } from '@/types'
+
+const TZ = 'America/Sao_Paulo'
+
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ })
+}
 
 interface Metrics {
   todayTotal: number
@@ -13,7 +19,7 @@ interface Metrics {
   cancelled: number
   todayRevenue: number
   monthRevenue: number
-  newCustomers: number
+  newCustomersThisMonth: number
 }
 
 export default function DashboardPage() {
@@ -57,9 +63,9 @@ export default function DashboardPage() {
       confirmed: appts.filter(a => a.status === 'confirmed').length,
       pending: appts.filter(a => a.status === 'pending').length,
       cancelled: appts.filter(a => a.status === 'cancelled').length,
-      todayRevenue: appts.filter(a => a.status !== 'cancelled').reduce((s, a) => s + (a.service?.price || 0), 0),
+      todayRevenue: appts.filter(a => a.status !== 'cancelled').reduce((s, a) => s + ((a.service as any)?.price || 0), 0),
       monthRevenue: month.reduce((s: number, a: any) => s + (a.service?.price || 0), 0),
-      newCustomers: newCustomers || 0,
+      newCustomersThisMonth: newCustomers || 0,
     })
     setLoading(false)
   }
@@ -72,9 +78,7 @@ export default function DashboardPage() {
     no_show:   { label: 'Faltou',     cls: 'pill-gray' },
   }
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Carregando...</div>
-  )
+  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Carregando...</div>
 
   return (
     <div>
@@ -85,19 +89,16 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Métricas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { icon: CalendarCheck, label: 'Agendamentos hoje', value: metrics!.todayTotal, color: 'text-brand', bg: 'bg-brand-light' },
-          { icon: Users,         label: 'Novos clientes',    value: metrics!.newCustomers, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { icon: Wallet,        label: 'Faturamento hoje',  value: `R$${metrics!.todayRevenue.toFixed(2)}`, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { icon: X,             label: 'Cancelamentos',     value: metrics!.cancelled, color: 'text-red-500', bg: 'bg-red-50' },
+          { icon: Users, label: 'Novos clientes', value: metrics!.newCustomersThisMonth, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { icon: Wallet, label: 'Faturamento hoje', value: `R$${metrics!.todayRevenue.toFixed(2)}`, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { icon: X, label: 'Cancelamentos', value: metrics!.cancelled, color: 'text-red-500', bg: 'bg-red-50' },
         ].map(({ icon: Icon, label, value, color, bg }) => (
           <div key={label} className="card">
             <div className="flex items-center gap-2 mb-3">
-              <div className={`${bg} p-1.5 rounded-lg`}>
-                <Icon size={15} className={color} />
-              </div>
+              <div className={`${bg} p-1.5 rounded-lg`}><Icon size={15} className={color} /></div>
               <span className="text-xs text-gray-500">{label}</span>
             </div>
             <div className="text-2xl font-bold text-gray-900">{value}</div>
@@ -106,7 +107,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Próximos agendamentos */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
             <Clock size={16} className="text-brand" />
@@ -121,12 +121,12 @@ export default function DashboardPage() {
                 return (
                   <div key={a.id} className="flex items-center gap-3 py-3">
                     <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark text-xs font-semibold flex items-center justify-center shrink-0">
-                      {a.customer?.name?.slice(0, 2).toUpperCase()}
+                      {(a.customer as any)?.name?.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 truncate">{a.customer?.name}</div>
+                      <div className="text-sm font-medium text-gray-900 truncate">{(a.customer as any)?.name}</div>
                       <div className="text-xs text-gray-400">
-                        {new Date(a.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })} · {a.service?.name} · {a.professional?.name}
+                        {formatTime(a.starts_at)} · {(a.service as any)?.name} · {(a.professional as any)?.name}
                       </div>
                     </div>
                     <span className={s.cls}>{s.label}</span>
@@ -137,7 +137,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Resumo WhatsApp */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
             <MessageCircle size={16} className="text-brand" />
@@ -155,10 +154,7 @@ export default function DashboardPage() {
                   <strong className="text-gray-900">{value}</strong>
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-brand rounded-full transition-all"
-                    style={{ width: `${Math.round((value / max) * 100)}%` }}
-                  />
+                  <div className="h-full bg-brand rounded-full" style={{ width: `${Math.round((value / max) * 100)}%` }} />
                 </div>
               </div>
             ))}

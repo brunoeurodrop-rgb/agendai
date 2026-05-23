@@ -45,24 +45,33 @@ export default function ClientesPage() {
     if (!form.name || !form.phone) { toast.error('Nome e telefone são obrigatórios'); return }
     if (!orgId) { toast.error('Sessão expirada. Faça login novamente.'); return }
 
+    const phone = form.phone.replace(/\D/g, '')
+
     if (editing) {
       const { error } = await supabase.from('customers').update({
         name: form.name,
-        phone: form.phone.replace(/\D/g, ''),
+        phone,
         email: form.email || null,
         notes: form.notes || null,
       }).eq('id', editing.id)
-      if (error) { toast.error('Erro: ' + error.message); return }
+      if (error) { toast.error('Erro ao atualizar cliente.'); return }
       toast.success('Cliente atualizado!')
     } else {
       const { error } = await supabase.from('customers').insert({
         org_id: orgId,
         name: form.name,
-        phone: form.phone.replace(/\D/g, ''),
+        phone,
         email: form.email || null,
         notes: form.notes || null,
       })
-      if (error) { toast.error('Erro: ' + error.message); return }
+      if (error) {
+        if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+          toast.error('Este número de telefone já está cadastrado para outro cliente.')
+        } else {
+          toast.error('Erro ao cadastrar cliente.')
+        }
+        return
+      }
       toast.success('Cliente cadastrado!')
     }
     setModal(false)
@@ -88,10 +97,15 @@ export default function ClientesPage() {
         </button>
       </div>
 
+      {/* Busca com espaçamento correto */}
       <div className="relative mb-6">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input className="input pl-9" placeholder="Buscar por nome, telefone ou e-mail..."
-          value={search} onChange={e => setSearch(e.target.value)} />
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <input
+          className="input pl-10"
+          placeholder="Buscar por nome, telefone ou e-mail..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
 
       <div className="card overflow-hidden p-0">
@@ -124,9 +138,7 @@ export default function ClientesPage() {
                     <div className="flex items-center gap-1.5"><Phone size={13} className="text-gray-400" />{c.phone}</div>
                   </td>
                   <td className="px-5 py-3.5 text-gray-500 hidden lg:table-cell">
-                    {c.email
-                      ? <div className="flex items-center gap-1.5"><Mail size={13} className="text-gray-400" />{c.email}</div>
-                      : <span className="text-gray-300">—</span>}
+                    {c.email ? <div className="flex items-center gap-1.5"><Mail size={13} className="text-gray-400" />{c.email}</div> : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-5 py-3.5">
                     <button onClick={() => openEdit(c)}
@@ -158,6 +170,7 @@ export default function ClientesPage() {
                 <label className="label">WhatsApp *</label>
                 <input className="input" placeholder="(21) 99999-9999" value={form.phone}
                   onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                <p className="text-xs text-gray-400 mt-1">Cada número só pode ser cadastrado uma vez.</p>
               </div>
               <div>
                 <label className="label">E-mail</label>
