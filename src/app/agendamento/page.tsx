@@ -1,13 +1,32 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { format, addDays, isBefore, startOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Check, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Service, Professional, Customer } from '@/types'
 
+const TZ = 'America/Sao_Paulo'
+
 const SLOTS = ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
+
+function getTodayBrasilia() {
+  return new Date().toLocaleDateString('pt-BR', { timeZone: TZ }).split('/').reverse().join('-')
+}
+
+function getNowBrasilia() {
+  return new Date().toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
+}
+
+function isSlotInPast(date: string, time: string): boolean {
+  const today = getTodayBrasilia()
+  if (date > today) return false
+  if (date < today) return true
+  // Mesmo dia — verificar horário
+  const now = getNowBrasilia()
+  return time <= now
+}
 
 export default function AgendamentoPage() {
   const [step, setStep] = useState(1)
@@ -20,7 +39,7 @@ export default function AgendamentoPage() {
     service: null as Service | null,
     professional: null as Professional | null,
     customer: null as Customer | null,
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: getTodayBrasilia(),
     time: '',
     notes: '',
   })
@@ -36,17 +55,20 @@ export default function AgendamentoPage() {
 
   useEffect(() => {
     if (!sel.professional || !sel.date) return
-    const start = new Date(sel.date + 'T00:00:00')
-    const end   = new Date(sel.date + 'T23:59:59')
+    // Buscar horários ocupados no dia selecionado em horário de Brasília
+    const start = new Date(sel.date + 'T00:00:00-03:00').toISOString()
+    const end = new Date(sel.date + 'T23:59:59-03:00').toISOString()
     supabase
       .from('appointments')
       .select('starts_at')
       .eq('professional_id', sel.professional.id)
       .not('status', 'in', '(cancelled)')
-      .gte('starts_at', start.toISOString())
-      .lte('starts_at', end.toISOString())
+      .gte('starts_at', start)
+      .lte('starts_at', end)
       .then(({ data }) => {
-        const times = (data || []).map(a => format(new Date(a.starts_at), 'HH:mm'))
+        const times = (data || []).map(a =>
+          new Date(a.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ })
+        )
         setBookedSlots(times)
       })
   }, [sel.professional, sel.date])
@@ -60,8 +82,17 @@ export default function AgendamentoPage() {
     if (!sel.service || !sel.professional || !sel.customer || !sel.date || !sel.time) {
       toast.error('Preencha todos os campos'); return
     }
+
+    // Verificar se data/hora não é no passado
+    if (isSlotInPast(sel.date, sel.time)) {
+      toast.error('Não é possível agendar para uma data ou horário no passado.')
+      return
+    }
+
     setLoading(true)
-    const starts_at = `${sel.date}T${sel.time}:00`
+    // Usar offset de Brasília (-03:00)
+    const starts_at = `${sel.date}T${sel.time}:00-03:00`
+
     const res = await fetch('/api/appointments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -78,7 +109,7 @@ export default function AgendamentoPage() {
     if (!res.ok) { toast.error(data.error || 'Erro ao agendar'); return }
     toast.success('Agendamento confirmado! WhatsApp enviado automaticamente. 🎉')
     setStep(1)
-    setSel({ service: null, professional: null, customer: null, date: format(new Date(), 'yyyy-MM-dd'), time: '', notes: '' })
+    setSel({ service: null, professional: null, customer: null, date: getTodayBrasilia(), time: '', notes: '' })
     setCustomerSearch('')
   }
 
@@ -113,7 +144,6 @@ export default function AgendamentoPage() {
       </div>
 
       <div className="max-w-xl">
-
         {/* Step 1: Serviço */}
         {step === 1 && (
           <div className="card">
@@ -154,7 +184,7 @@ export default function AgendamentoPage() {
                   </div>
                 </button>
               ))}
-              {professionals.length === 0 && <p className="text-sm text-gray-400">Nenhum profissional ativo. Cadastre em Profissionais primeiro.</p>}
+              {professionals.length === 0 && <p className="text-sm text-gray-400">Nenhum profissional ativo.</p>}
             </div>
             <button onClick={() => setStep(1)} className="btn-secondary w-full mt-4">Voltar</button>
           </div>
@@ -167,7 +197,7 @@ export default function AgendamentoPage() {
             <div className="mb-4">
               <label className="label">Data</label>
               <input type="date" className="input" value={sel.date}
-                min={format(new Date(), 'yyyy-MM-dd')}
+                min={getTodayBrasilia()}
                 onChange={e => setSel(f => ({ ...f, date: e.target.value, time: '' }))} />
             </div>
             <div>
@@ -175,12 +205,14 @@ export default function AgendamentoPage() {
               <div className="grid grid-cols-5 gap-2">
                 {SLOTS.map(t => {
                   const booked = bookedSlots.includes(t)
+                  const past = isSlotInPast(sel.date, t)
+                  const disabled = booked || past
                   return (
-                    <button key={t} disabled={booked}
+                    <button key={t} disabled={disabled}
                       onClick={() => setSel(f => ({ ...f, time: t }))}
                       className={`py-2 rounded-lg text-xs font-medium border transition-all ${
                         sel.time === t ? 'border-brand bg-brand text-white' :
-                        booked ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' :
+                        disabled ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' :
                         'border-gray-200 hover:border-brand hover:text-brand'
                       }`}>
                       {t}
@@ -188,6 +220,9 @@ export default function AgendamentoPage() {
                   )
                 })}
               </div>
+              {sel.date === getTodayBrasilia() && (
+                <p className="text-xs text-gray-400 mt-2">Horários anteriores ao atual estão desabilitados.</p>
+              )}
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setStep(2)} className="btn-secondary flex-1">Voltar</button>
@@ -216,7 +251,7 @@ export default function AgendamentoPage() {
                 </button>
               ))}
               {filteredCustomers.length === 0 && (
-                <p className="text-sm text-gray-400 py-4 text-center">Nenhum cliente encontrado. Cadastre em Clientes primeiro.</p>
+                <p className="text-sm text-gray-400 py-4 text-center">Nenhum cliente encontrado.</p>
               )}
             </div>
             <button onClick={() => setStep(3)} className="btn-secondary w-full mt-4">Voltar</button>
@@ -231,7 +266,7 @@ export default function AgendamentoPage() {
               {[
                 ['Serviço', sel.service.name, `R$${Number(sel.service.price).toFixed(2)} · ${sel.service.duration_min}min`],
                 ['Profissional', sel.professional.name, sel.professional.specialty || ''],
-                ['Data', format(new Date(sel.date + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }), ''],
+                ['Data', new Date(sel.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }), ''],
                 ['Horário', sel.time, ''],
                 ['Cliente', sel.customer.name, sel.customer.phone],
               ].map(([label, value, sub]) => (
@@ -250,7 +285,7 @@ export default function AgendamentoPage() {
                 value={sel.notes} onChange={e => setSel(f => ({ ...f, notes: e.target.value }))} />
             </div>
             <div className="p-3 bg-brand-light rounded-xl text-xs text-brand-dark mb-4">
-              Mensagem de confirmação será enviada automaticamente pelo WhatsApp após salvar.
+              Mensagem de confirmação será enviada automaticamente pelo WhatsApp.
             </div>
             <div className="flex gap-3">
               <button onClick={() => setStep(4)} className="btn-secondary flex-1">Voltar</button>
