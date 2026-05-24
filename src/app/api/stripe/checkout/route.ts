@@ -4,18 +4,16 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-04-10' as any,
+  apiVersion: '2025-03-31.basil' as any,
 })
 
 export async function POST(req: NextRequest) {
   try {
-    // Pegar o token do header Authorization
     const authHeader = req.headers.get('Authorization')
     const token = authHeader?.replace('Bearer ', '')
 
-    // Usar admin client para verificar o token
     const adminSupabase = createAdminSupabaseClient()
-    
+
     let userId: string
     let userEmail: string
 
@@ -27,7 +25,6 @@ export async function POST(req: NextRequest) {
       userId = user.id
       userEmail = user.email || ''
     } else {
-      // Tentar via cookie
       const supabase = createServerSupabaseClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -48,9 +45,7 @@ export async function POST(req: NextRequest) {
       .eq('id', userId)
       .single()
 
-    if (!profile) {
-      return NextResponse.json({ error: 'Perfil nao encontrado' }, { status: 404 })
-    }
+    if (!profile) return NextResponse.json({ error: 'Perfil nao encontrado' }, { status: 404 })
 
     const { data: org } = await adminSupabase
       .from('organizations')
@@ -72,7 +67,8 @@ export async function POST(req: NextRequest) {
         .eq('id', profile.org_id)
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Usar a URL do app configurada nas variáveis de ambiente
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vermillion-palmier-d545a3.netlify.app'
 
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
