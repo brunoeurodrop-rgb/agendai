@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase-server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-03-31.basil' as any,
-})
 
 export async function POST(req: NextRequest) {
   try {
+    // Importar Stripe dentro da função para evitar erro de build
+    const Stripe = (await import('stripe')).default
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2025-03-31.basil' as any,
+    })
+
     const authHeader = req.headers.get('Authorization')
     const token = authHeader?.replace('Bearer ', '')
 
@@ -67,8 +68,7 @@ export async function POST(req: NextRequest) {
         .eq('id', profile.org_id)
     }
 
-    // Usar a URL do app configurada nas variáveis de ambiente
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vermillion-palmier-d545a3.netlify.app'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://agendai.vercel.app'
 
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
