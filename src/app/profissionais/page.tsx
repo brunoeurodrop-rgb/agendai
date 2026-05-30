@@ -81,14 +81,9 @@ export default function ProfissionaisPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Profissionais</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {ativos} de {limite >= 99 ? '∞' : limite} {limite === 1 ? 'profissional' : 'profissionais'} ativos
-          </p>
+          <p className="text-sm text-gray-500 mt-0.5">{ativos} de {limite >= 99 ? '∞' : limite} {limite === 1 ? 'profissional' : 'profissionais'} ativos</p>
         </div>
-        <button
-          className={`btn-primary flex items-center gap-2 ${atingiuLimite ? 'opacity-60' : ''}`}
-          onClick={openNew}
-        >
+        <button className={`btn-primary flex items-center gap-2 ${atingiuLimite ? 'opacity-60' : ''}`} onClick={openNew}>
           {atingiuLimite ? <Lock size={16} /> : <Plus size={16} />}
           {atingiuLimite ? 'Limite atingido' : 'Novo profissional'}
         </button>
@@ -106,13 +101,8 @@ export default function ProfissionaisPage() {
           <div key={p.id} className={`card ${!p.active ? 'opacity-60' : ''}`}>
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-brand-light text-brand-dark font-semibold flex items-center justify-center text-sm shrink-0">
-                  {p.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <div className="font-medium text-gray-900">{p.name}</div>
-                  <div className="text-xs text-gray-400">{p.specialty || 'Profissional'}</div>
-                </div>
+                <div className="w-10 h-10 rounded-full bg-brand-light text-brand-dark font-semibold flex items-center justify-center text-sm shrink-0">{p.name.slice(0,2).toUpperCase()}</div>
+                <div><div className="font-medium text-gray-900">{p.name}</div><div className="text-xs text-gray-400">{p.specialty || 'Profissional'}</div></div>
               </div>
               <button onClick={() => openEdit(p)} className="text-gray-400 hover:text-gray-700 p-1"><Pencil size={14} /></button>
             </div>
@@ -121,9 +111,7 @@ export default function ProfissionaisPage() {
               {p.phone && <div className="flex items-center gap-1.5 text-xs text-gray-500"><Phone size={12} className="text-gray-400" />{p.phone}</div>}
               {p.email && <div className="flex items-center gap-1.5 text-xs text-gray-500"><Mail size={12} className="text-gray-400" />{p.email}</div>}
             </div>
-            <button onClick={() => toggle(p)} className={`text-xs px-2.5 py-1 rounded-full font-medium ${p.active ? 'pill-green' : 'pill-gray'}`}>
-              {p.active ? 'Ativo' : 'Inativo'}
-            </button>
+            <button onClick={() => toggle(p)} className={`text-xs px-2.5 py-1 rounded-full font-medium ${p.active ? 'pill-green' : 'pill-gray'}`}>{p.active ? 'Ativo' : 'Inativo'}</button>
           </div>
         ))}
         {list.length === 0 && <div className="col-span-3 text-center py-16 text-gray-400 text-sm">Nenhum profissional cadastrado ainda.</div>}
