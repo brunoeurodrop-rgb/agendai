@@ -1,15 +1,28 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { format, startOfDay, endOfDay, startOfMonth } from 'date-fns'
+import { format, startOfDay, endOfDay, startOfMonth, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CalendarCheck, Users, Wallet, X, MessageCircle, Clock } from 'lucide-react'
+import { CalendarCheck, Users, Wallet, X, MessageCircle, Clock, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 import type { Appointment } from '@/types'
 
 const TZ = 'America/Sao_Paulo'
 
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ })
+}
+
+function formatDateShort(dateStr: string) {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const tomorrow = addDays(today, 1)
+  const dateLocal = date.toLocaleDateString('pt-BR', { timeZone: TZ })
+  const todayLocal = today.toLocaleDateString('pt-BR', { timeZone: TZ })
+  const tomorrowLocal = tomorrow.toLocaleDateString('pt-BR', { timeZone: TZ })
+  if (dateLocal === todayLocal) return 'Hoje'
+  if (dateLocal === tomorrowLocal) return 'Amanhã'
+  return date.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })
 }
 
 interface Metrics {
@@ -24,7 +37,8 @@ interface Metrics {
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
-  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [todayAppts, setTodayAppts] = useState<Appointment[]>([])
+  const [upcomingAppts, setUpcomingAppts] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -35,37 +49,48 @@ export default function DashboardPage() {
     const todayStart = startOfDay(today).toISOString()
     const todayEnd = endOfDay(today).toISOString()
     const monthStart = startOfMonth(today).toISOString()
+    const next7days = addDays(today, 7).toISOString()
 
-    const { data: todayAppts } = await supabase
-      .from('appointments')
-      .select('*, customer:customers(*), professional:professionals(*), service:services(*)')
-      .gte('starts_at', todayStart)
-      .lte('starts_at', todayEnd)
-      .order('starts_at')
+    const [todayRes, upcomingRes, monthRes, customersRes] = await Promise.all([
+      supabase
+        .from('appointments')
+        .select('*, customer:customers(*), professional:professionals(*), service:services(*)')
+        .gte('starts_at', todayStart)
+        .lte('starts_at', todayEnd)
+        .not('status', 'eq', 'cancelled')
+        .order('starts_at'),
+      supabase
+        .from('appointments')
+        .select('*, customer:customers(*), professional:professionals(*), service:services(*)')
+        .gt('starts_at', todayEnd)
+        .lte('starts_at', next7days)
+        .not('status', 'eq', 'cancelled')
+        .order('starts_at')
+        .limit(10),
+      supabase
+        .from('appointments')
+        .select('status, service:services(price)')
+        .gte('starts_at', monthStart)
+        .neq('status', 'cancelled'),
+      supabase
+        .from('customers')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', monthStart),
+    ])
 
-    const { data: monthAppts } = await supabase
-      .from('appointments')
-      .select('status, service:services(price)')
-      .gte('starts_at', monthStart)
-      .neq('status', 'cancelled')
+    const appts = todayRes.data || []
+    const month = monthRes.data || []
 
-    const { count: newCustomers } = await supabase
-      .from('customers')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', monthStart)
-
-    const appts = todayAppts || []
-    const month = monthAppts || []
-
-    setAppointments(appts)
+    setTodayAppts(appts)
+    setUpcomingAppts(upcomingRes.data || [])
     setMetrics({
       todayTotal: appts.length,
       confirmed: appts.filter(a => a.status === 'confirmed').length,
       pending: appts.filter(a => a.status === 'pending').length,
       cancelled: appts.filter(a => a.status === 'cancelled').length,
-      todayRevenue: appts.filter(a => a.status !== 'cancelled').reduce((s, a) => s + ((a.service as any)?.price || 0), 0),
+      todayRevenue: appts.reduce((s, a) => s + ((a.service as any)?.price || 0), 0),
       monthRevenue: month.reduce((s: number, a: any) => s + (a.service?.price || 0), 0),
-      newCustomersThisMonth: newCustomers || 0,
+      newCustomersThisMonth: customersRes.count || 0,
     })
     setLoading(false)
   }
@@ -79,6 +104,8 @@ export default function DashboardPage() {
   }
 
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Carregando...</div>
+
+  const allAppts = [...todayAppts, ...upcomingAppts]
 
   return (
     <div>
@@ -108,16 +135,26 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="card">
-          <div className="flex items-center gap-2 mb-4">
-            <Clock size={16} className="text-brand" />
-            <h2 className="font-medium text-gray-900 text-sm">Agendamentos de hoje</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-brand" />
+              <h2 className="font-medium text-gray-900 text-sm">Próximos agendamentos</h2>
+            </div>
+            <Link href="/agenda" className="text-xs text-brand hover:underline flex items-center gap-1">
+              Ver agenda <ChevronRight size={12} />
+            </Link>
           </div>
-          {appointments.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">Nenhum agendamento para hoje.</p>
+          {allAppts.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-sm text-gray-400">Nenhum agendamento nos próximos 7 dias.</p>
+              <Link href="/agendamento" className="btn-primary inline-block mt-3 text-xs px-4 py-2">+ Novo agendamento</Link>
+            </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {appointments.map(a => {
+              {allAppts.slice(0, 8).map(a => {
                 const s = statusConfig[a.status] || statusConfig.pending
+                const dateLabel = formatDateShort(a.starts_at)
+                const isToday = dateLabel === 'Hoje'
                 return (
                   <div key={a.id} className="flex items-center gap-3 py-3">
                     <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark text-xs font-semibold flex items-center justify-center shrink-0">
@@ -126,13 +163,21 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 truncate">{(a.customer as any)?.name}</div>
                       <div className="text-xs text-gray-400">
-                        {formatTime(a.starts_at)} · {(a.service as any)?.name} · {(a.professional as any)?.name}
+                        <span className={isToday ? 'text-brand font-medium' : 'text-gray-500'}>{dateLabel}</span>
+                        {' · '}{formatTime(a.starts_at)} · {(a.service as any)?.name}
                       </div>
                     </div>
-                    <span className={s.cls}>{s.label}</span>
+                    <span className={s.cls + ' shrink-0'}>{s.label}</span>
                   </div>
                 )
               })}
+              {allAppts.length > 8 && (
+                <div className="pt-3 text-center">
+                  <Link href="/agenda" className="text-xs text-brand hover:underline">
+                    Ver todos os {allAppts.length} agendamentos
+                  </Link>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -146,7 +191,7 @@ export default function DashboardPage() {
             {[
               { label: 'Confirmações enviadas', value: metrics!.confirmed, max: metrics!.todayTotal || 1 },
               { label: 'Pendentes de resposta', value: metrics!.pending, max: metrics!.todayTotal || 1 },
-              { label: 'Cancelamentos', value: metrics!.cancelled, max: metrics!.todayTotal || 1 },
+              { label: 'Cancelamentos hoje', value: metrics!.cancelled, max: metrics!.todayTotal || 1 },
             ].map(({ label, value, max }) => (
               <div key={label}>
                 <div className="flex justify-between text-xs mb-1.5">
@@ -158,10 +203,16 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
-            <div className="mt-4 p-3 bg-brand-light rounded-lg">
+            <div className="mt-2 p-3 bg-brand-light rounded-lg">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-brand-dark font-medium">Faturamento do mês</span>
                 <strong className="text-brand-dark">R${metrics!.monthRevenue.toFixed(2)}</strong>
+              </div>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Próximos 7 dias</span>
+                <strong className="text-gray-900">{upcomingAppts.length} agendamento{upcomingAppts.length !== 1 ? 's' : ''}</strong>
               </div>
             </div>
           </div>
