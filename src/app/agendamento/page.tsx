@@ -54,12 +54,20 @@ export default function AgendamentoPage() {
   })
   const [customerSearch, setCustomerSearch] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('services').select('*').eq('active', true).order('name').then(({ data }) => setServices(data || []))
-    supabase.from('professionals').select('*').eq('active', true).order('name').then(({ data }) => setProfessionals(data || []))
-    supabase.from('customers').select('*').order('name').then(({ data }) => setCustomers(data || []))
+    Promise.all([
+      supabase.from('services').select('*').eq('active', true).order('name'),
+      supabase.from('professionals').select('*').eq('active', true).order('name'),
+      supabase.from('customers').select('*').order('name'),
+    ]).then(([svc, prof, cust]) => {
+      setServices(svc.data || [])
+      setProfessionals(prof.data || [])
+      setCustomers(cust.data || [])
+      setDataLoading(false)
+    })
   }, [])
 
   useEffect(() => {
@@ -141,7 +149,20 @@ export default function AgendamentoPage() {
         })}
       </div>
 
-      <div className="max-w-xl">
+      {dataLoading && (
+        <div className="max-w-xl">
+          <div className="card animate-pulse">
+            <div className="h-4 bg-gray-100 rounded w-1/3 mb-4"></div>
+            <div className="space-y-2">
+              <div className="h-12 bg-gray-100 rounded-xl"></div>
+              <div className="h-12 bg-gray-100 rounded-xl"></div>
+              <div className="h-12 bg-gray-100 rounded-xl"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!dataLoading && <div className="max-w-xl">
         {step === 1 && (
           <div className="card">
             <h2 className="font-medium text-gray-900 mb-4">Qual servico?</h2>
@@ -288,7 +309,7 @@ export default function AgendamentoPage() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }
