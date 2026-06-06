@@ -146,7 +146,7 @@ export default function AgendamentoPage() {
           <div className="card">
             <h2 className="font-medium text-gray-900 mb-4">Qual servico?</h2>
             {services.length === 0 ? (
-              <EmptyState icon="scissors" title="Nenhum servico cadastrado ainda" description="Cadastre pelo menos um servico para comecar a agendar." buttonLabel="Cadastrar primeiro servico" href="/servicos" />
+              <EmptyState icon="✂️" title="Nenhum servico cadastrado ainda" description="Cadastre pelo menos um servico para comecar a agendar." buttonLabel="Cadastrar primeiro servico" href="/servicos" />
             ) : (
               <div className="grid grid-cols-1 gap-2">
                 {services.map(s => (
@@ -171,7 +171,7 @@ export default function AgendamentoPage() {
           <div className="card">
             <h2 className="font-medium text-gray-900 mb-4">Qual profissional?</h2>
             {professionals.length === 0 ? (
-              <EmptyState icon="person" title="Nenhum profissional cadastrado ainda" description="Cadastre pelo menos um profissional para continuar." buttonLabel="Cadastrar primeiro profissional" href="/profissionais" />
+              <EmptyState icon="👩‍💼" title="Nenhum profissional cadastrado ainda" description="Cadastre pelo menos um profissional para continuar." buttonLabel="Cadastrar primeiro profissional" href="/profissionais" />
             ) : (
               <div className="grid grid-cols-1 gap-2">
                 {professionals.map(p => (
@@ -226,7 +226,7 @@ export default function AgendamentoPage() {
           <div className="card">
             <h2 className="font-medium text-gray-900 mb-4">Para qual cliente?</h2>
             {customers.length === 0 ? (
-              <EmptyState icon="group" title="Nenhum cliente cadastrado ainda" description="Cadastre pelo menos um cliente para continuar." buttonLabel="Cadastrar primeiro cliente" href="/clientes" />
+              <EmptyState icon="👥" title="Nenhum cliente cadastrado ainda" description="Cadastre pelo menos um cliente para continuar." buttonLabel="Cadastrar primeiro cliente" href="/clientes" />
             ) : (
               <>
                 <input className="input mb-3" placeholder="Buscar por nome ou telefone..."
