@@ -16,15 +16,15 @@ const nav = [
   { label: 'Novo agend.',   href: '/agendamento',   icon: Plus,            group: 'Principal' },
   { label: 'WhatsApp',      href: '/whatsapp',      icon: MessageCircle,   group: 'Principal' },
   { label: 'Clientes',      href: '/clientes',      icon: Users,           group: 'Cadastros' },
-  { label: 'Servicos',      href: '/servicos',      icon: Scissors,        group: 'Cadastros' },
+  { label: 'Serviços',      href: '/servicos',      icon: Scissors,        group: 'Cadastros' },
   { label: 'Profissionais', href: '/profissionais', icon: UserCheck,       group: 'Cadastros' },
-  { label: 'Financeiro',    href: '/financeiro',    icon: Wallet,          group: 'Gestao' },
-  { label: 'Comissoes',     href: '/comissoes',     icon: Percent,         group: 'Gestao' },
-  { label: 'Relatorios',    href: '/relatorios',    icon: BarChart2,       group: 'Gestao' },
-  { label: 'Notificacoes',  href: '/notificacoes',  icon: Bell,            group: 'Gestao' },
+  { label: 'Financeiro',    href: '/financeiro',    icon: Wallet,          group: 'Gestão' },
+  { label: 'Comissões',     href: '/comissoes',     icon: Percent,         group: 'Gestão' },
+  { label: 'Relatorios',    href: '/relatorios',    icon: BarChart2,       group: 'Gestão' },
+  { label: 'Notificações',  href: '/notificacoes',  icon: Bell,            group: 'Gestão' },
 ]
 
-const groups = ['Principal', 'Cadastros', 'Gestao']
+const groups = ['Principal', 'Cadastros', 'Gestão']
 const ROOT_PAGES = ['/dashboard']
 const SUPORTE_URL = 'https://wa.me/5521990760217?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+AgendaAI'
 

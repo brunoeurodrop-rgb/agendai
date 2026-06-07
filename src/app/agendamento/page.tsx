@@ -99,7 +99,7 @@ export default function AgendamentoPage() {
       toast.error('Preencha todos os campos'); return
     }
     if (isSlotInPast(sel.date, sel.time)) {
-      toast.error('Nao e possivel agendar para uma data ou horario no passado.'); return
+      toast.error('Não é possível agendar para uma data ou horário no passado.'); return
     }
     setLoading(true)
     const starts_at = sel.date + 'T' + sel.time + ':00-03:00'
@@ -123,7 +123,7 @@ export default function AgendamentoPage() {
     setCustomerSearch('')
   }
 
-  const steps = ['Servico', 'Profissional', 'Data e hora', 'Cliente', 'Confirmar']
+  const steps = ['Serviço', 'Profissional', 'Data e hora', 'Cliente', 'Confirmar']
 
   return (
     <div>
@@ -165,9 +165,9 @@ export default function AgendamentoPage() {
       {!dataLoading && <div className="max-w-xl">
         {step === 1 && (
           <div className="card">
-            <h2 className="font-medium text-gray-900 mb-4">Qual servico?</h2>
+            <h2 className="font-medium text-gray-900 mb-4">Qual serviço?</h2>
             {services.length === 0 ? (
-              <EmptyState icon="✂️" title="Nenhum servico cadastrado ainda" description="Cadastre pelo menos um servico para comecar a agendar." buttonLabel="Cadastrar primeiro servico" href="/servicos" />
+              <EmptyState icon="✂️" title="Nenhum serviço cadastrado ainda" description="Cadastre pelo menos um serviço para começar a agendar." buttonLabel="Cadastrar primeiro serviço" href="/servicos" />
             ) : (
               <div className="grid grid-cols-1 gap-2">
                 {services.map(s => (
@@ -222,7 +222,7 @@ export default function AgendamentoPage() {
                 onChange={e => setSel(f => ({ ...f, date: e.target.value, time: '' }))} />
             </div>
             <div>
-              <label className="label">Horario disponivel</label>
+              <label className="label">Horário disponível</label>
               <div className="grid grid-cols-5 gap-2">
                 {SLOTS.map(t => {
                   const disabled = bookedSlots.includes(t) || isSlotInPast(sel.date, t)
@@ -234,7 +234,7 @@ export default function AgendamentoPage() {
                   )
                 })}
               </div>
-              {sel.date === getTodayBrasilia() && <p className="text-xs text-gray-400 mt-2">Horarios anteriores ao atual estao desabilitados.</p>}
+              {sel.date === getTodayBrasilia() && <p className="text-xs text-gray-400 mt-2">Horários anteriores ao atual estão desabilitados.</p>}
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setStep(2)} className="btn-secondary flex-1">Voltar</button>
@@ -278,10 +278,10 @@ export default function AgendamentoPage() {
             <h2 className="font-medium text-gray-900 mb-4">Confirmar agendamento</h2>
             <div className="space-y-3 mb-5">
               {[
-                ['Servico', sel.service.name, 'R$' + Number(sel.service.price).toFixed(2) + ' - ' + sel.service.duration_min + 'min'],
+                ['Serviço', sel.service.name, 'R$' + Number(sel.service.price).toFixed(2) + ' - ' + sel.service.duration_min + 'min'],
                 ['Profissional', sel.professional.name, sel.professional.specialty || ''],
                 ['Data', new Date(sel.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }), ''],
-                ['Horario', sel.time, ''],
+                ['Horário', sel.time, ''],
                 ['Cliente', sel.customer.name, sel.customer.phone],
               ].map(([label, value, sub]) => (
                 <div key={label} className="flex justify-between items-start py-2.5 border-b border-gray-50">
@@ -294,12 +294,12 @@ export default function AgendamentoPage() {
               ))}
             </div>
             <div className="mb-4">
-              <label className="label">Observacoes (opcional)</label>
-              <input className="input" placeholder="Ex: cliente preferiu tintura organica"
+              <label className="label">Observações (opcional)</label>
+              <input className="input" placeholder="Ex: cliente preferiu tintura orgânica"
                 value={sel.notes} onChange={e => setSel(f => ({ ...f, notes: e.target.value }))} />
             </div>
             <div className="p-3 bg-brand-light rounded-xl text-xs text-brand-dark mb-4">
-              Mensagem de confirmacao sera enviada automaticamente pelo WhatsApp.
+              Mensagem de confirmação será enviada automaticamente pelo WhatsApp.
             </div>
             <div className="flex gap-3">
               <button onClick={() => setStep(4)} className="btn-secondary flex-1">Voltar</button>

@@ -8,7 +8,7 @@ import type { Service } from '@/types'
 
 const COLORS = ['#00C896','#7F77DD','#D4537E','#378ADD','#F59E0B','#10B981','#EF4444','#6366F1']
 
-export default function ServicosPage() {
+export default function ServiçosPage() {
   const [services, setServices] = useState<Service[]>([])
   const [orgId, setOrgId] = useState<string | null>(null)
   const [plano, setPlano] = useState<string>('trial')
