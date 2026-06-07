@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase-client'
 import {
   LayoutDashboard, Calendar, Plus, MessageCircle, Users,
   Scissors, UserCheck, Wallet, BarChart2, Bell, Star,
-  LogOut, Menu, X, ChevronLeft, Percent
+  LogOut, Menu, X, ChevronLeft, Percent, HelpCircle
 } from 'lucide-react'
 import TrialBanner from '@/components/TrialBanner'
 
@@ -26,6 +26,7 @@ const nav = [
 
 const groups = ['Principal', 'Cadastros', 'Gestao']
 const ROOT_PAGES = ['/dashboard']
+const SUPORTE_URL = 'https://wa.me/5521990760217?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+AgendaAI'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -72,11 +73,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         ))}
       </nav>
-      <div className="p-3 border-t border-gray-100">
+      <div className="p-3 border-t border-gray-100 space-y-0.5">
         <Link href="/planos" onClick={() => setOpen(false)}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900 mb-1">
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900">
           <Star size={16} /> Planos
         </Link>
+        <a href={SUPORTE_URL} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-green-50 hover:text-green-700 transition-all">
+          <HelpCircle size={16} className="text-green-500" />
+          <span>Suporte</span>
+          <span className="ml-auto text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full font-medium">WhatsApp</span>
+        </a>
         <button onClick={logout}
           className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900 w-full">
           <LogOut size={16} /> Sair
@@ -108,7 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 Voltar
               </button>
             ) : (
-              <div className="text-sm text-gray-400 hidden md:block">{dateStr}</div>
+              <div className="text-sm text-gray-400 hidden md:block" suppressHydrationWarning>{dateStr}</div>
             )}
           </div>
           <div className="md:hidden text-lg font-bold text-brand">Agenda<span className="text-gray-900">AI</span></div>
