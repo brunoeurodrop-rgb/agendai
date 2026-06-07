@@ -20,7 +20,7 @@ const nav = [
   { label: 'Profissionais', href: '/profissionais', icon: UserCheck,       group: 'Cadastros' },
   { label: 'Financeiro',    href: '/financeiro',    icon: Wallet,          group: 'Gestão' },
   { label: 'Comissões',     href: '/comissoes',     icon: Percent,         group: 'Gestão' },
-  { label: 'Relatorios',    href: '/relatorios',    icon: BarChart2,       group: 'Gestão' },
+  { label: 'Relatórios',    href: '/relatorios',    icon: BarChart2,       group: 'Gestão' },
   { label: 'Notificações',  href: '/notificacoes',  icon: Bell,            group: 'Gestão' },
 ]
 

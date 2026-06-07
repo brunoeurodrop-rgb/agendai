@@ -17,10 +17,7 @@ export default function LoginPage() {
   async function handleLogin() {
     if (!form.email || !form.password) { toast.error('Preencha e-mail e senha'); return }
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({
-      email: form.email,
-      password: form.password,
-    })
+    const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
     setLoading(false)
     if (error) { toast.error('E-mail ou senha incorretos'); return }
     router.push('/dashboard')
@@ -30,47 +27,25 @@ export default function LoginPage() {
     if (!form.name || !form.email || !form.password || !form.company) {
       toast.error('Preencha todos os campos'); return
     }
-    if (form.password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres'); return
-    }
+    if (form.password.length < 6) { toast.error('A senha deve ter pelo menos 6 caracteres'); return }
     setLoading(true)
 
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: form.name,
-        email: form.email,
-        password: form.password,
-        company: form.company,
-      }),
+      body: JSON.stringify({ name: form.name, email: form.email, password: form.password, company: form.company }),
     })
-
     const data = await res.json()
     setLoading(false)
 
     if (!res.ok) {
-      if (data.error === 'EMAIL_EXISTS') {
-        toast.error('Este e-mail já está cadastrado. Faça login.')
-        setMode('login')
-        return
-      }
+      if (data.error === 'EMAIL_EXISTS') { toast.error('Este e-mail já está cadastrado. Faça login.'); setMode('login'); return }
       toast.error(data.error || 'Erro ao criar conta. Tente novamente.')
       return
     }
 
-    // Login automático após cadastro
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email: form.email,
-      password: form.password,
-    })
-
-    if (loginError) {
-      toast.error('Conta criada! Faça login para continuar.')
-      setMode('login')
-      return
-    }
-
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
+    if (loginError) { toast.error('Conta criada! Faça login para continuar.'); setMode('login'); return }
     toast.success('Conta criada! Bem-vindo ao AgendaAI 🎉')
     router.push('/dashboard')
   }
@@ -87,9 +62,7 @@ export default function LoginPage() {
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg mb-6">
             {(['login', 'register'] as const).map(m => (
               <button key={m} onClick={() => setMode(m)}
-                className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
-                  mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}>
+                className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
                 {m === 'login' ? 'Entrar' : 'Criar conta grátis'}
               </button>
             ))}
@@ -98,38 +71,28 @@ export default function LoginPage() {
           <div className="flex flex-col gap-4">
             {mode === 'register' && (
               <>
-                <div>
-                  <label className="label">Seu nome</label>
-                  <input name="name" className="input" placeholder="Ex: Ana Silva" onChange={handle} />
-                </div>
-                <div>
-                  <label className="label">Nome da empresa</label>
-                  <input name="company" className="input" placeholder="Ex: Salão Beleza Real" onChange={handle} />
-                </div>
+                <div><label className="label">Seu nome</label><input name="name" className="input" placeholder="Ex: Ana Silva" onChange={handle} /></div>
+                <div><label className="label">Nome da empresa</label><input name="company" className="input" placeholder="Ex: Salão Beleza Real" onChange={handle} /></div>
               </>
             )}
-            <div>
-              <label className="label">E-mail</label>
-              <input name="email" type="email" className="input" placeholder="voce@empresa.com" onChange={handle} />
-            </div>
-            <div>
-              <label className="label">Senha</label>
-              <input name="password" type="password" className="input" placeholder="Mínimo 6 caracteres" onChange={handle} />
-            </div>
+            <div><label className="label">E-mail</label><input name="email" type="email" className="input" placeholder="voce@empresa.com" onChange={handle} /></div>
+            <div><label className="label">Senha</label><input name="password" type="password" className="input" placeholder="Mínimo 6 caracteres" onChange={handle} /></div>
 
-            <button
-              className="btn-primary w-full py-3 mt-2"
-              onClick={mode === 'login' ? handleLogin : handleRegister}
-              disabled={loading}
-            >
+            <button className="btn-primary w-full py-3 mt-2" onClick={mode === 'login' ? handleLogin : handleRegister} disabled={loading}>
               {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar no painel' : 'Criar conta — 14 dias grátis'}
             </button>
+
+            {mode === 'login' && (
+              <div className="text-center -mt-2">
+                <a href="/recuperar-senha" className="text-xs text-gray-400 hover:text-brand transition-colors">
+                  Esqueci minha senha
+                </a>
+              </div>
+            )}
           </div>
 
           {mode === 'register' && (
-            <p className="text-center text-xs text-gray-400 mt-4">
-              Sem cartão de crédito. Cancele quando quiser.
-            </p>
+            <p className="text-center text-xs text-gray-400 mt-4">Sem cartão de crédito. Cancele quando quiser.</p>
           )}
         </div>
 
