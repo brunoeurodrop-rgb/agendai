@@ -1,19 +1,24 @@
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 
-const PUBLIC_ROUTES = ['/login', '/api/stripe/webhook']
-const BLOCKED_REDIRECT = '/planos'
+const PUBLIC_ROUTES = [
+  '/login',
+  '/recuperar-senha',
+  '/redefinir-senha',
+  '/assinatura/sucesso',
+  '/assinatura/cancelada',
+]
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Rotas públicas passam direto
-  if (PUBLIC_ROUTES.some(r => pathname.startsWith(r))) {
+  // Permitir rotas públicas
+  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
     return NextResponse.next()
   }
 
-  // Rotas de API passam direto (exceto as protegidas)
+  // Permitir APIs
   if (pathname.startsWith('/api/')) {
     return NextResponse.next()
   }
@@ -32,45 +37,15 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  // Não logado — vai para login
-  if (!session && pathname !== '/login') {
+  if (!user) {
     return NextResponse.redirect(new URL('/login', req.url))
-  }
-
-  // Logado — verificar status da conta
-  if (session) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', session.user.id)
-      .single()
-
-    if (profile) {
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('plan, trial_ends_at')
-        .eq('id', profile.org_id)
-        .single()
-
-      if (org) {
-        const now = new Date()
-        const trialEnd = org.trial_ends_at ? new Date(org.trial_ends_at) : null
-        const trialExpired = trialEnd ? now > trialEnd : false
-        const isBlocked = org.plan === 'trial' && trialExpired
-
-        // Se bloqueado e não está na página de planos, redireciona
-        if (isBlocked && pathname !== BLOCKED_REDIRECT) {
-          return NextResponse.redirect(new URL(BLOCKED_REDIRECT, req.url))
-        }
-      }
-    }
   }
 
   return res
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
 }
