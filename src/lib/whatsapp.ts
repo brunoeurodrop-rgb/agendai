@@ -6,8 +6,8 @@ export function buildMessage(type: string, data: {
   orgName: string
 }): string {
   const date = new Date(data.startsAt)
-  const dateStr = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
-  const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  const dateStr = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Sao_Paulo' })
+  const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
 
   const templates: Record<string, string> = {
     confirmation: `Olá, ${data.customerName}! 😊\n\nSeu agendamento foi *confirmado*!\n\n📅 *Data:* ${dateStr}\n⏰ *Horário:* ${timeStr}\n✂️ *Serviço:* ${data.serviceName}\n👩 *Profissional:* ${data.professionalName}\n\nEstamos te esperando! ✨\n\n_${data.orgName}_`,
@@ -21,9 +21,9 @@ export function buildMessage(type: string, data: {
 }
 
 export async function sendWhatsAppMessage(phone: string, message: string): Promise<boolean> {
-  const instanceId = process.env.ZAPI_INSTANCE_ID
-  const token = process.env.ZAPI_TOKEN
-  const clientToken = process.env.ZAPI_CLIENT_TOKEN
+  const instanceId = process.env.WAPI_INSTANCE_ID || process.env.ZAPI_INSTANCE_ID
+  const token = process.env.WAPI_TOKEN || process.env.ZAPI_TOKEN
+  const provider = process.env.WAPI_INSTANCE_ID ? 'wapi' : 'zapi'
 
   if (!instanceId || !token) {
     console.log(`[WhatsApp SIMULADO] Para: ${phone}\n${message}`)
@@ -34,21 +34,40 @@ export async function sendWhatsAppMessage(phone: string, message: string): Promi
     let number = phone.replace(/\D/g, '')
     if (!number.startsWith('55')) number = '55' + number
 
-    const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`
+    let url: string
+    let headers: Record<string, string>
+    let body: object
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+    if (provider === 'wapi') {
+      // W-API endpoint
+      url = `https://api.w-api.app/v1/message/send-text?instanceId=${instanceId}`
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      }
+      body = {
+        phone: number,
+        message: message,
+      }
+    } else {
+      // Z-API endpoint (fallback)
+      const clientToken = process.env.ZAPI_CLIENT_TOKEN
+      url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`
+      headers = {
+        'Content-Type': 'application/json',
+        ...(clientToken ? { 'Client-Token': clientToken } : {}),
+      }
+      body = { phone: number, message }
     }
-    if (clientToken) headers['Client-Token'] = clientToken
 
     const res = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ phone: number, message }),
+      body: JSON.stringify(body),
     })
 
     const data = await res.json()
-    console.log('[Z-API] Resposta:', JSON.stringify(data))
+    console.log(`[WhatsApp ${provider.toUpperCase()}] Resposta:`, JSON.stringify(data))
     return res.ok && !data.error
   } catch (err) {
     console.error('[WhatsApp] Erro ao enviar:', err)
