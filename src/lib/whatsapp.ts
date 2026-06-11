@@ -21,11 +21,11 @@ export function buildMessage(type: string, data: {
 }
 
 export async function sendWhatsAppMessage(phone: string, message: string): Promise<boolean> {
-  const instanceId = process.env.WAPI_INSTANCE_ID || process.env.ZAPI_INSTANCE_ID
-  const token = process.env.WAPI_TOKEN || process.env.ZAPI_TOKEN
-  const provider = process.env.WAPI_INSTANCE_ID ? 'wapi' : 'zapi'
+  // W-API tem prioridade se WAPI_INSTANCE_ID estiver configurado
+  const wapiInstanceId = process.env.WAPI_INSTANCE_ID
+  const wapiToken = process.env.WAPI_TOKEN
 
-  if (!instanceId || !token) {
+  if (!wapiInstanceId || !wapiToken) {
     console.log(`[WhatsApp SIMULADO] Para: ${phone}\n${message}`)
     return true
   }
@@ -34,31 +34,18 @@ export async function sendWhatsAppMessage(phone: string, message: string): Promi
     let number = phone.replace(/\D/g, '')
     if (!number.startsWith('55')) number = '55' + number
 
-    let url: string
-    let headers: Record<string, string>
-    let body: object
-
-    if (provider === 'wapi') {
-      // W-API endpoint
-      url = `https://api.w-api.app/v1/message/send-text?instanceId=${instanceId}`
-      headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      }
-      body = {
-        phone: number,
-        message: message,
-      }
-    } else {
-      // Z-API endpoint (fallback)
-      const clientToken = process.env.ZAPI_CLIENT_TOKEN
-      url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`
-      headers = {
-        'Content-Type': 'application/json',
-        ...(clientToken ? { 'Client-Token': clientToken } : {}),
-      }
-      body = { phone: number, message }
+    const url = `https://api.w-api.app/v1/message/send-text?instanceId=${wapiInstanceId}`
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${wapiToken}`,
     }
+    const body = {
+      phone: number,
+      message: message,
+    }
+
+    console.log('[W-API] Enviando para:', number)
+    console.log('[W-API] URL:', url)
 
     const res = await fetch(url, {
       method: 'POST',
@@ -67,7 +54,7 @@ export async function sendWhatsAppMessage(phone: string, message: string): Promi
     })
 
     const data = await res.json()
-    console.log(`[WhatsApp ${provider.toUpperCase()}] Resposta:`, JSON.stringify(data))
+    console.log('[W-API] Resposta:', JSON.stringify(data))
     return res.ok && !data.error
   } catch (err) {
     console.error('[WhatsApp] Erro ao enviar:', err)
