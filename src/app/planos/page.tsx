@@ -9,28 +9,37 @@ const PLANOS = [
     id: 'starter',
     nome: 'Starter',
     preco: 'R$49',
-    desc: 'Ideal para comecar',
+    desc: 'Ideal para começar',
     featured: false,
     priceId: 'price_1TXq9q3NsfHF8KhTMJDkvNWw',
-    features: ['1 profissional', 'Agenda online', 'WhatsApp basico', '50 agendamentos/mes', 'Suporte por e-mail'],
+    features: [
+      '1 profissional',
+      'Até 10 serviços',
+      'Até 50 clientes',
+      '50 agendamentos/mês',
+      'WhatsApp automático',
+      'Relatórios básicos',
+      'Suporte via WhatsApp',
+    ],
   },
   {
     id: 'pro',
     nome: 'Pro',
     preco: 'R$99',
-    desc: 'Para negocios em crescimento',
+    desc: 'Para negócios em crescimento',
     featured: true,
     priceId: 'price_1TXqA53NsfHF8KhTFHn3X7US',
-    features: ['Ate 5 profissionais', 'WhatsApp ilimitado', 'IA de atendimento', 'PIX automatico', 'Google Agenda', 'Agendamentos ilimitados', 'Relatorios avancados', 'Suporte prioritario'],
-  },
-  {
-    id: 'enterprise',
-    nome: 'Enterprise',
-    preco: 'R$249',
-    desc: 'Multi-unidades e franquias',
-    featured: false,
-    priceId: 'price_1TXqAP3NsfHF8KhTgB4woG5a',
-    features: ['Profissionais ilimitados', 'Multiplas unidades', 'API personalizada', 'Relatorios completos', 'Suporte dedicado', 'Onboarding exclusivo'],
+    features: [
+      'Até 5 profissionais',
+      'Até 50 serviços',
+      'Até 300 clientes',
+      '500 agendamentos/mês',
+      'WhatsApp automático',
+      'Módulo de comissões',
+      'Relatórios completos',
+      'Export PDF',
+      'Suporte prioritário',
+    ],
   },
 ]
 
@@ -41,10 +50,9 @@ export default function PlanosPage() {
   async function assinar(priceId: string, planId: string) {
     setLoading(planId)
     try {
-      // Pegar o token JWT da sessao atual
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        toast.error('Faca login novamente para assinar.')
+        toast.error('Faça login novamente para assinar.')
         setLoading(null)
         return
       }
@@ -72,8 +80,8 @@ export default function PlanosPage() {
         toast.error('Erro ao iniciar checkout.')
         setLoading(null)
       }
-    } catch (err) {
-      toast.error('Erro de conexao. Verifique sua internet.')
+    } catch {
+      toast.error('Erro de conexão. Verifique sua internet.')
       setLoading(null)
     }
   }
@@ -82,9 +90,10 @@ export default function PlanosPage() {
     <div>
       <div className="mb-8 text-center">
         <h1 className="text-xl font-bold text-gray-900">Planos e assinatura</h1>
-        <p className="text-sm text-gray-500 mt-1">14 dias gratis em qualquer plano. Sem cartao de credito.</p>
+        <p className="text-sm text-gray-500 mt-1">14 dias grátis em qualquer plano. Sem cartão de crédito.</p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
         {PLANOS.map(p => (
           <div key={p.nome} className={`rounded-2xl p-6 border bg-white ${p.featured ? 'border-brand border-2 relative' : 'border-gray-200'}`}>
             {p.featured && (
@@ -94,7 +103,7 @@ export default function PlanosPage() {
             )}
             <div className="mb-5">
               <div className="font-bold text-gray-900 text-base mb-1">{p.nome}</div>
-              <div className="text-3xl font-bold text-gray-900">{p.preco}<span className="text-sm font-normal text-gray-400">/mes</span></div>
+              <div className="text-3xl font-bold text-gray-900">{p.preco}<span className="text-sm font-normal text-gray-400">/mês</span></div>
               <div className="text-xs text-gray-400 mt-1">{p.desc}</div>
             </div>
             <div className="space-y-2.5 mb-6">
@@ -114,13 +123,32 @@ export default function PlanosPage() {
               }`}
             >
               {loading === p.id && <Loader2 size={14} className="animate-spin" />}
-              {loading === p.id ? 'Aguarde...' : p.id === 'enterprise' ? 'Falar com vendas' : `Assinar ${p.nome}`}
+              {loading === p.id ? 'Aguarde...' : `Assinar ${p.nome}`}
             </button>
           </div>
         ))}
       </div>
-      <p className="mt-8 text-center text-xs text-gray-400">
-        Todos os planos incluem atualizacoes gratuitas e suporte via WhatsApp.
+
+      {/* Card Enterprise sob consulta */}
+      <div className="max-w-2xl mx-auto mt-4">
+        <div className="rounded-2xl p-6 border border-dashed border-gray-300 bg-gray-50 text-center">
+          <div className="font-bold text-gray-700 mb-1">Precisa de mais?</div>
+          <p className="text-sm text-gray-500 mb-4">
+            Para redes com múltiplas unidades ou volume alto de atendimentos, temos uma solução personalizada.
+          </p>
+          <a
+            href="https://wa.me/5521990760217?text=Olá%2C+tenho+interesse+em+um+plano+personalizado+do+AgendaAI"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-6 py-2.5 rounded-xl hover:bg-gray-700 transition-colors"
+          >
+            Falar com consultor
+          </a>
+        </div>
+      </div>
+
+      <p className="mt-6 text-center text-xs text-gray-400">
+        Todos os planos incluem atualizações gratuitas e suporte via WhatsApp.
       </p>
     </div>
   )
