@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { format, startOfMonth, endOfMonth, startOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { DollarSign, Percent, FileText, ChevronDown, Plus, X, Pencil } from 'lucide-react'
+import { Percent, FileText, Plus, X, Pencil, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type Professional = { id: string; name: string; specialty: string | null }
@@ -16,24 +16,26 @@ type CommissionResult = {
   total_comissao: number
 }
 
+const PLANOS_COM_PDF = ['pro', 'enterprise']
+
 export default function ComissoesPage() {
   const [tab, setTab] = useState<'config' | 'relatorio'>('relatorio')
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [orgId, setOrgId] = useState<string | null>(null)
+  const [plano, setPlano] = useState<string>('trial')
   const [results, setResults] = useState<CommissionResult[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Commission | null>(null)
   const [form, setForm] = useState({ professional_id: '', service_id: '', percentage: '' })
-
-  // Período
   const [periodo, setPeriodo] = useState<'mensal' | 'quinzenal'>('mensal')
   const [mes, setMes] = useState(format(new Date(), 'yyyy-MM'))
   const [quinzena, setQuinzena] = useState<1 | 2>(1)
 
   const supabase = createClient()
+  const podePDF = PLANOS_COM_PDF.includes(plano)
 
   useEffect(() => { init() }, [])
 
@@ -43,6 +45,9 @@ export default function ComissoesPage() {
     const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     if (!profile) return
     setOrgId(profile.org_id)
+
+    const { data: org } = await supabase.from('organizations').select('plan').eq('id', profile.org_id).single()
+    if (org) setPlano(org.plan)
 
     const [p, s, c] = await Promise.all([
       supabase.from('professionals').select('id, name, specialty').eq('active', true).order('name'),
@@ -58,12 +63,15 @@ export default function ComissoesPage() {
     const [year, month] = mes.split('-').map(Number)
     const base = new Date(year, month - 1, 1)
     if (periodo === 'mensal') {
-      return { start: startOfMonth(base), end: endOfMonth(base) }
+      return {
+        start: new Date(year, month - 1, 1),
+        end: new Date(year, month, 0, 23, 59, 59),
+      }
     } else {
       if (quinzena === 1) {
         return { start: new Date(year, month - 1, 1), end: new Date(year, month - 1, 15, 23, 59, 59) }
       } else {
-        return { start: new Date(year, month - 1, 16), end: endOfMonth(base) }
+        return { start: new Date(year, month - 1, 16), end: new Date(year, month, 0, 23, 59, 59) }
       }
     }
   }
@@ -91,40 +99,23 @@ export default function ComissoesPage() {
     for (const appt of appts) {
       const prof = professionals.find(p => p.id === appt.professional_id)
       if (!prof) continue
-
       const service = appt.service as any
       const price = service?.price || 0
       const serviceName = service?.name || 'Serviço'
-
-      // Buscar percentual — primeiro tenta específico por serviço, depois geral do profissional
-      const commEspecifica = commissions.find(
-        c => c.professional_id === appt.professional_id && c.service_id === appt.service_id && c.active
-      )
-      const commGeral = commissions.find(
-        c => c.professional_id === appt.professional_id && c.service_id === null && c.active
-      )
+      const commEspecifica = commissions.find(c => c.professional_id === appt.professional_id && c.service_id === appt.service_id && c.active)
+      const commGeral = commissions.find(c => c.professional_id === appt.professional_id && c.service_id === null && c.active)
       const comm = commEspecifica || commGeral
       const percentual = comm ? comm.percentage : 0
 
       if (!resultMap[prof.id]) {
         resultMap[prof.id] = { professional: prof, servicos: [], total_bruto: 0, total_comissao: 0 }
       }
-
       const existing = resultMap[prof.id].servicos.find(s => s.nome === serviceName && s.percentual === percentual)
       if (existing) {
-        existing.quantidade++
-        existing.valor_total += price
-        existing.comissao += price * (percentual / 100)
+        existing.quantidade++; existing.valor_total += price; existing.comissao += price * (percentual / 100)
       } else {
-        resultMap[prof.id].servicos.push({
-          nome: serviceName,
-          quantidade: 1,
-          valor_total: price,
-          percentual,
-          comissao: price * (percentual / 100),
-        })
+        resultMap[prof.id].servicos.push({ nome: serviceName, quantidade: 1, valor_total: price, percentual, comissao: price * (percentual / 100) })
       }
-
       resultMap[prof.id].total_bruto += price
       resultMap[prof.id].total_comissao += price * (percentual / 100)
     }
@@ -136,15 +127,7 @@ export default function ComissoesPage() {
   async function saveCommission() {
     if (!form.professional_id || !form.percentage) { toast.error('Preencha todos os campos obrigatórios'); return }
     if (!orgId) return
-
-    const payload = {
-      org_id: orgId,
-      professional_id: form.professional_id,
-      service_id: form.service_id || null,
-      percentage: parseFloat(form.percentage),
-      active: true,
-    }
-
+    const payload = { org_id: orgId, professional_id: form.professional_id, service_id: form.service_id || null, percentage: parseFloat(form.percentage), active: true }
     if (editing) {
       const { error } = await supabase.from('commissions').update(payload).eq('id', editing.id)
       if (error) { toast.error('Erro ao atualizar: ' + error.message); return }
@@ -177,71 +160,59 @@ export default function ComissoesPage() {
     setModal(true)
   }
 
-  async function exportPDF() {
+  function exportPDF() {
+    if (!podePDF) {
+      toast.error('Exportação de PDF disponível apenas no plano Pro. Faça upgrade!')
+      return
+    }
     if (results.length === 0) { toast.error('Calcule as comissões primeiro'); return }
     const { start, end } = getDateRange()
-
-    const linhas = results.map(r => `
-      <div style="margin-bottom:24px; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden;">
-        <div style="background:#f9fafb; padding:10px 16px; font-weight:600; font-size:15px; display:flex; justify-content:space-between;">
-          <span>${r.professional.name}</span>
-          <span style="color:#00C896">Comissão: R$${r.total_comissao.toFixed(2)}</span>
-        </div>
-        <table style="width:100%; border-collapse:collapse; font-size:13px;">
-          <thead>
-            <tr style="background:#f3f4f6;">
-              <th style="text-align:left; padding:8px 16px; color:#6b7280">Serviço</th>
-              <th style="text-align:right; padding:8px 16px; color:#6b7280">Qtd</th>
-              <th style="text-align:right; padding:8px 16px; color:#6b7280">Valor total</th>
-              <th style="text-align:right; padding:8px 16px; color:#6b7280">%</th>
-              <th style="text-align:right; padding:8px 16px; color:#6b7280">Comissão</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${r.servicos.map(s => `
-              <tr style="border-top:1px solid #f3f4f6;">
-                <td style="padding:8px 16px">${s.nome}</td>
-                <td style="padding:8px 16px; text-align:right">${s.quantidade}</td>
-                <td style="padding:8px 16px; text-align:right">R$${s.valor_total.toFixed(2)}</td>
-                <td style="padding:8px 16px; text-align:right">${s.percentual}%</td>
-                <td style="padding:8px 16px; text-align:right; color:#00C896; font-weight:500">R$${s.comissao.toFixed(2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <div style="padding:10px 16px; background:#f9fafb; display:flex; justify-content:space-between; font-size:13px;">
-          <span>Total bruto: <strong>R$${r.total_bruto.toFixed(2)}</strong></span>
-          <span>Total a pagar: <strong style="color:#00C896">R$${r.total_comissao.toFixed(2)}</strong></span>
-        </div>
-      </div>
-    `).join('')
-
-    const totalGeral = results.reduce((s, r) => s + r.total_comissao, 0)
     const periodoLabel = periodo === 'mensal'
       ? format(new Date(mes + '-01'), "MMMM 'de' yyyy", { locale: ptBR })
       : `${quinzena}ª quinzena de ${format(new Date(mes + '-01'), "MMMM 'de' yyyy", { locale: ptBR })}`
 
-    const html = `
-      <!DOCTYPE html><html><head><meta charset="UTF-8">
-      <title>Relatório de Comissões</title>
-      <style>body { font-family: Arial, sans-serif; padding: 32px; color: #111827; }</style>
-      </head><body>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; padding-bottom:16px; border-bottom:2px solid #00C896;">
-        <div>
-          <h1 style="font-size:22px; margin:0; color:#111827">Relatório de Comissões</h1>
-          <p style="color:#6b7280; margin:4px 0 0; font-size:14px; text-transform:capitalize">${periodoLabel}</p>
+    const linhas = results.map(r => `
+      <div style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <div style="background:#f9fafb;padding:10px 16px;font-weight:600;font-size:15px;display:flex;justify-content:space-between;">
+          <span>${r.professional.name}</span>
+          <span style="color:#00C896">Comissão: R$${r.total_comissao.toFixed(2)}</span>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:13px; color:#6b7280">Total geral a pagar</div>
-          <div style="font-size:24px; font-weight:700; color:#00C896">R$${totalGeral.toFixed(2)}</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr style="background:#f3f4f6;">
+            <th style="text-align:left;padding:8px 16px;color:#6b7280">Serviço</th>
+            <th style="text-align:right;padding:8px 16px;color:#6b7280">Qtd</th>
+            <th style="text-align:right;padding:8px 16px;color:#6b7280">Valor total</th>
+            <th style="text-align:right;padding:8px 16px;color:#6b7280">%</th>
+            <th style="text-align:right;padding:8px 16px;color:#6b7280">Comissão</th>
+          </tr></thead>
+          <tbody>${r.servicos.map(s => `
+            <tr style="border-top:1px solid #f3f4f6;">
+              <td style="padding:8px 16px">${s.nome}</td>
+              <td style="padding:8px 16px;text-align:right">${s.quantidade}</td>
+              <td style="padding:8px 16px;text-align:right">R$${s.valor_total.toFixed(2)}</td>
+              <td style="padding:8px 16px;text-align:right">${s.percentual}%</td>
+              <td style="padding:8px 16px;text-align:right;color:#00C896;font-weight:500">R$${s.comissao.toFixed(2)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        <div style="padding:10px 16px;background:#f9fafb;display:flex;justify-content:space-between;font-size:13px;">
+          <span>Total bruto: <strong>R$${r.total_bruto.toFixed(2)}</strong></span>
+          <span>Total a pagar: <strong style="color:#00C896">R$${r.total_comissao.toFixed(2)}</strong></span>
         </div>
-      </div>
-      ${linhas}
-      <p style="text-align:center; color:#9ca3af; font-size:12px; margin-top:24px;">
-        Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} — AgendaAI
-      </p>
-      </body></html>
-    `
+      </div>`).join('')
+
+    const totalGeral = results.reduce((s, r) => s + r.total_comissao, 0)
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório de Comissões</title>
+      <style>body{font-family:Arial,sans-serif;padding:32px;color:#111827;}</style></head><body>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #00C896;">
+        <div><h1 style="font-size:22px;margin:0">Relatório de Comissões</h1>
+        <p style="color:#6b7280;margin:4px 0 0;font-size:14px;text-transform:capitalize">${periodoLabel}</p></div>
+        <div style="text-align:right"><div style="font-size:13px;color:#6b7280">Total geral a pagar</div>
+        <div style="font-size:24px;font-weight:700;color:#00C896">R$${totalGeral.toFixed(2)}</div></div>
+      </div>${linhas}
+      <p style="text-align:center;color:#9ca3af;font-size:12px;margin-top:24px;">
+        Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} — AgendaAI</p>
+      </body></html>`
 
     const blob = new Blob([html], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
@@ -262,7 +233,6 @@ export default function ComissoesPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg mb-6 w-fit">
         {([['relatorio', 'Relatório'], ['config', 'Configurar']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
@@ -272,10 +242,8 @@ export default function ComissoesPage() {
         ))}
       </div>
 
-      {/* RELATÓRIO */}
       {tab === 'relatorio' && (
         <div>
-          {/* Filtros */}
           <div className="card mb-6">
             <div className="flex flex-wrap gap-4 items-end">
               <div>
@@ -310,14 +278,26 @@ export default function ComissoesPage() {
                 {loading ? 'Calculando...' : 'Calcular comissões'}
               </button>
               {results.length > 0 && (
-                <button onClick={exportPDF} className="btn-secondary flex items-center gap-2">
-                  <FileText size={15} /> Exportar PDF
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={exportPDF}
+                    className={`flex items-center gap-2 ${podePDF ? 'btn-secondary' : 'btn-secondary opacity-60'}`}
+                  >
+                    {!podePDF && <Lock size={13} />}
+                    <FileText size={15} />
+                    {podePDF ? 'Exportar PDF' : 'PDF — Plano Pro'}
+                  </button>
+                </div>
               )}
             </div>
+            {!podePDF && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 flex items-center justify-between gap-4">
+                <span>A exportação em PDF está disponível apenas no plano <strong>Pro</strong>.</span>
+                <a href="/planos" className="btn-primary text-xs px-3 py-1.5 shrink-0">Fazer upgrade</a>
+              </div>
+            )}
           </div>
 
-          {/* Resultados */}
           {results.length === 0 && !loading && (
             <div className="card text-center py-16 text-gray-400 text-sm">
               Selecione o período e clique em "Calcular comissões" para ver o relatório.
@@ -326,33 +306,17 @@ export default function ComissoesPage() {
 
           {results.length > 0 && (
             <>
-              {/* Resumo geral */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="card">
-                  <div className="text-xs text-gray-500 mb-1">Total a pagar</div>
-                  <div className="text-2xl font-bold text-brand">
-                    R${results.reduce((s, r) => s + r.total_comissao, 0).toFixed(2)}
-                  </div>
-                </div>
-                <div className="card">
-                  <div className="text-xs text-gray-500 mb-1">Faturamento bruto</div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    R${results.reduce((s, r) => s + r.total_bruto, 0).toFixed(2)}
-                  </div>
-                </div>
-                <div className="card">
-                  <div className="text-xs text-gray-500 mb-1">Profissionais</div>
-                  <div className="text-2xl font-bold text-gray-900">{results.length}</div>
-                </div>
-                <div className="card">
-                  <div className="text-xs text-gray-500 mb-1">Total atendimentos</div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {results.reduce((s, r) => s + r.servicos.reduce((ss, sv) => ss + sv.quantidade, 0), 0)}
-                  </div>
-                </div>
+                <div className="card"><div className="text-xs text-gray-500 mb-1">Total a pagar</div>
+                  <div className="text-2xl font-bold text-brand">R${results.reduce((s, r) => s + r.total_comissao, 0).toFixed(2)}</div></div>
+                <div className="card"><div className="text-xs text-gray-500 mb-1">Faturamento bruto</div>
+                  <div className="text-2xl font-bold text-gray-900">R${results.reduce((s, r) => s + r.total_bruto, 0).toFixed(2)}</div></div>
+                <div className="card"><div className="text-xs text-gray-500 mb-1">Profissionais</div>
+                  <div className="text-2xl font-bold text-gray-900">{results.length}</div></div>
+                <div className="card"><div className="text-xs text-gray-500 mb-1">Total atendimentos</div>
+                  <div className="text-2xl font-bold text-gray-900">{results.reduce((s, r) => s + r.servicos.reduce((ss, sv) => ss + sv.quantidade, 0), 0)}</div></div>
               </div>
 
-              {/* Cards por profissional */}
               {results.map(r => (
                 <div key={r.professional.id} className="card mb-4 overflow-hidden p-0">
                   <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-gray-100">
@@ -386,9 +350,7 @@ export default function ComissoesPage() {
                           <td className="px-5 py-3 text-gray-700">{s.nome}</td>
                           <td className="px-5 py-3 text-right text-gray-500">{s.quantidade}</td>
                           <td className="px-5 py-3 text-right text-gray-700">R${s.valor_total.toFixed(2)}</td>
-                          <td className="px-5 py-3 text-right">
-                            <span className={`pill ${s.percentual > 0 ? 'pill-green' : 'pill-gray'}`}>{s.percentual}%</span>
-                          </td>
+                          <td className="px-5 py-3 text-right"><span className={s.percentual > 0 ? 'pill-green' : 'pill-gray'}>{s.percentual}%</span></td>
                           <td className="px-5 py-3 text-right font-medium text-brand">R${s.comissao.toFixed(2)}</td>
                         </tr>
                       ))}
@@ -409,7 +371,6 @@ export default function ComissoesPage() {
         </div>
       )}
 
-      {/* CONFIGURAÇÃO */}
       {tab === 'config' && (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -418,7 +379,6 @@ export default function ComissoesPage() {
               <Plus size={16} /> Nova comissão
             </button>
           </div>
-
           <div className="card overflow-hidden p-0">
             {commissions.length === 0 ? (
               <div className="text-center py-16 text-gray-400 text-sm">
@@ -431,7 +391,6 @@ export default function ComissoesPage() {
                     <th className="text-left px-5 py-3 text-xs text-gray-500 font-medium">Profissional</th>
                     <th className="text-left px-5 py-3 text-xs text-gray-500 font-medium">Serviço</th>
                     <th className="text-right px-5 py-3 text-xs text-gray-500 font-medium">Percentual</th>
-                    <th className="text-left px-5 py-3 text-xs text-gray-500 font-medium">Status</th>
                     <th className="text-left px-5 py-3 text-xs text-gray-500 font-medium">Ações</th>
                   </tr>
                 </thead>
@@ -440,12 +399,7 @@ export default function ComissoesPage() {
                     <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="px-5 py-3 font-medium text-gray-900">{profName(c.professional_id)}</td>
                       <td className="px-5 py-3 text-gray-500">{svcName(c.service_id)}</td>
-                      <td className="px-5 py-3 text-right">
-                        <span className="pill-green font-medium">{c.percentage}%</span>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className={c.active ? 'pill-green' : 'pill-gray'}>{c.active ? 'Ativo' : 'Inativo'}</span>
-                      </td>
+                      <td className="px-5 py-3 text-right"><span className="pill-green font-medium">{c.percentage}%</span></td>
                       <td className="px-5 py-3">
                         <div className="flex gap-2">
                           <button onClick={() => openEdit(c)} className="text-gray-400 hover:text-brand p-1"><Pencil size={14} /></button>
@@ -458,14 +412,12 @@ export default function ComissoesPage() {
               </table>
             )}
           </div>
-
           <div className="mt-4 p-4 bg-blue-50 rounded-xl text-sm text-blue-700 border border-blue-100">
-            <strong>Regra de prioridade:</strong> se existir uma comissão específica para o serviço, ela tem prioridade sobre a comissão geral do profissional. Ex: 30% geral + 25% no corte = usa 25% no corte e 30% nos demais.
+            <strong>Regra de prioridade:</strong> se existir uma comissão específica para o serviço, ela tem prioridade sobre a comissão geral do profissional.
           </div>
         </div>
       )}
 
-      {/* Modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
