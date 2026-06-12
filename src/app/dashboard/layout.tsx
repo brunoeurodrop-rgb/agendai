@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase-client'
 import {
   LayoutDashboard, Calendar, Plus, MessageCircle, Users,
   Scissors, UserCheck, Wallet, BarChart2, Bell, Star,
-  LogOut, Menu, X, ChevronLeft, Percent, HelpCircle
+  LogOut, Menu, X, ChevronLeft, Percent, HelpCircle, Settings
 } from 'lucide-react'
 import TrialBanner from '@/components/TrialBanner'
 
@@ -74,8 +74,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ))}
       </nav>
       <div className="p-3 border-t border-gray-100 space-y-0.5">
+        <Link href="/configuracoes" onClick={() => setOpen(false)}
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+            pathname === '/configuracoes' ? 'bg-brand-light text-brand-dark font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+          }`}>
+          <Settings size={16} /> Configurações
+        </Link>
         <Link href="/planos" onClick={() => setOpen(false)}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900">
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+            pathname === '/planos' ? 'bg-brand-light text-brand-dark font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+          }`}>
           <Star size={16} /> Planos
         </Link>
         <a href={SUPORTE_URL} target="_blank" rel="noopener noreferrer"
