@@ -41,11 +41,12 @@ export default function ConfiguracoesPage() {
     setStatus('loading')
     try {
       const res = await fetch(`https://api.w-api.app/v1/instance/status?instanceId=${instId}`, {
+        method: 'GET',
         headers: { 'Authorization': `Bearer ${tok}` }
       })
       const data = await res.json()
       console.log('[W-API Status]', data)
-      if (res.ok && (data.status === 'connected' || data.connected === true || data.state === 'open')) {
+      if (res.ok && (data.status === 'connected' || data.connected === true || data.state === 'open' || data.error === false)) {
         setStatus('connected')
       } else {
         setStatus('disconnected')
@@ -78,21 +79,23 @@ export default function ConfiguracoesPage() {
     setLoadingQr(true)
     setQrCode(null)
     try {
-      const res = await fetch(`https://api.w-api.app/v1/instance/qrcode?instanceId=${instanceId}`, {
+      const res = await fetch(`https://api.w-api.app/v1/instance/qr-code?instanceId=${instanceId}&image=disable`, {
+        method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await res.json()
       console.log('[W-API QR]', data)
-      if (data.qrcode || data.qr) {
-        setQrCode(data.qrcode || data.qr)
+      if (data.error === false && data.qrcode) {
+        setQrCode(data.qrcode)
         toast.success('QR Code gerado! Escaneie com o WhatsApp.')
-      } else if (data.status === 'connected' || data.connected) {
+      } else if (data.status === 'connected' || data.connected === true) {
         setStatus('connected')
         toast.success('WhatsApp já está conectado!')
       } else {
         toast.error('Não foi possível gerar o QR Code. Verifique as credenciais.')
       }
-    } catch {
+    } catch (err) {
+      console.error('[QR Code]', err)
       toast.error('Erro ao buscar QR Code. Tente novamente.')
     }
     setLoadingQr(false)
