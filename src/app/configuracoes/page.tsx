@@ -151,7 +151,7 @@ export default function ConfiguracoesPage() {
             <p className="font-medium mb-2">Como configurar:</p>
             <ol className="space-y-1 text-xs list-decimal list-inside">
               <li>Acesse <a href="https://painel.w-api.app" target="_blank" rel="noopener noreferrer" className="underline font-medium">painel.w-api.app</a> e crie uma conta</li>
-              <li>Crie uma instância no plano Lite (R$19,90/mês)</li>
+              <li>Crie uma instância no plano Lite (R$19,90/mês) — <strong>7 dias grátis para testar</strong></li>
               <li>Copie o <strong>Instance ID</strong> e o <strong>Token</strong></li>
               <li>Cole os dados abaixo e clique em Salvar</li>
               <li>Clique em <strong>Gerar QR Code</strong> e escaneie com o WhatsApp</li>
