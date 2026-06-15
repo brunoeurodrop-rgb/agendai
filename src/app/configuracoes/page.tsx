@@ -40,13 +40,14 @@ export default function ConfiguracoesPage() {
     if (!instId || !tok) return
     setStatus('loading')
     try {
-      const res = await fetch(`https://api.w-api.app/v1/instance/status?instanceId=${instId}`, {
+      const res = await fetch(`https://api.w-api.app/v1/instance/device?instanceId=${instId}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${tok}` }
       })
       const data = await res.json()
-      console.log('[W-API Status]', data)
-      if (res.ok && (data.status === 'connected' || data.connected === true || data.state === 'open' || data.error === false)) {
+      console.log('[W-API Device]', data)
+      // Se retornou dados do dispositivo, está conectado
+      if (res.ok && data.error === false && (data.device || data.phone || data.pushName || data.id)) {
         setStatus('connected')
       } else {
         setStatus('disconnected')
