@@ -46,8 +46,8 @@ export default function ConfiguracoesPage() {
       })
       const data = await res.json()
       console.log('[W-API Device]', data)
-      // Se retornou dados do dispositivo, está conectado
-      if (res.ok && data.error === false && (data.device || data.phone || data.pushName || data.id)) {
+      // Se retornou connectedPhone, está conectado
+      if (res.ok && data.connectedPhone) {
         setStatus('connected')
       } else {
         setStatus('disconnected')
