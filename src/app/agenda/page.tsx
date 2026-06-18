@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, MessageSquare } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Appointment } from '@/types'
 
@@ -53,7 +53,7 @@ export default function AgendaPage() {
     const end = endOfMonth(currentMonth)
     const { data } = await supabase
       .from('appointments')
-      .select('*, customer:customers(name,phone), professional:professionals(name), service:services(name,price,duration_min,color)')
+      .select('*, customer:customers(name, phone), professional:professionals(name), service:services(name, price, duration_min, color)')
       .gte('starts_at', start.toISOString())
       .lte('starts_at', end.toISOString())
     setAllAppts(data || [])
@@ -62,7 +62,7 @@ export default function AgendaPage() {
 
   async function changeStatus(id: string, status: string) {
     await supabase.from('appointments').update({ status }).eq('id', id)
-    toast.success(status === 'completed' ? 'Marcado como concluído' : 'Agendamento cancelado')
+    toast.success(status === 'completed' ? 'Marcado como concluído' : status === 'cancelled' ? 'Agendamento cancelado' : 'Status atualizado')
     loadMonth()
     if (status === 'cancelled') {
       fetch('/api/whatsapp/send', {
@@ -83,26 +83,20 @@ export default function AgendaPage() {
   async function saveReag() {
     if (!reagAppt || !reagDate || !reagTime) { toast.error('Selecione data e horário'); return }
     setReagSaving(true)
-
-    const newStartsAt = `${reagDate}T${reagTime}:00`
+    const newStartsAt = `${reagDate}T${reagTime}:00-03:00`
     const duration = (reagAppt.service as any)?.duration_min || 60
     const newEndsAt = new Date(new Date(newStartsAt).getTime() + duration * 60000).toISOString()
-
     const { error } = await supabase.from('appointments').update({
       starts_at: new Date(newStartsAt).toISOString(),
       ends_at: newEndsAt,
       status: 'confirmed',
     }).eq('id', reagAppt.id)
-
     if (error) { toast.error('Erro ao reagendar'); setReagSaving(false); return }
-
-    // Enviar WhatsApp de reagendamento
     fetch('/api/whatsapp/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ appointmentId: reagAppt.id, type: 'rescheduling' }),
     })
-
     toast.success('Reagendado com sucesso! WhatsApp enviado.')
     setReagModal(false)
     setReagSaving(false)
@@ -177,7 +171,7 @@ export default function AgendaPage() {
                 const s = STATUS[a.status] || STATUS.pending
                 return (
                   <div key={a.id} className="p-3 border border-gray-100 rounded-xl hover:border-gray-200 transition-colors">
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark font-semibold text-xs flex items-center justify-center shrink-0">
                           {(a.customer as any)?.name?.slice(0, 2).toUpperCase()}
@@ -191,6 +185,15 @@ export default function AgendaPage() {
                       </div>
                       <span className={s.cls}>{s.label}</span>
                     </div>
+
+                    {/* Observações */}
+                    {a.notes && (
+                      <div className="flex items-start gap-1.5 mt-2 mb-2 px-1">
+                        <MessageSquare size={12} className="text-gray-400 mt-0.5 shrink-0" />
+                        <p className="text-xs text-gray-500 italic">{a.notes}</p>
+                      </div>
+                    )}
+
                     {a.status !== 'cancelled' && a.status !== 'completed' && (
                       <div className="flex gap-2 mt-2 flex-wrap">
                         {a.status === 'pending' && (
