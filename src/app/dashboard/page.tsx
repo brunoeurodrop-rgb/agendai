@@ -27,9 +27,8 @@ function formatDateShort(dateStr: string) {
 
 interface Metrics {
   todayTotal: number
-  confirmed: number
-  pending: number
-  cancelled: number
+  confirmacoes: number
+  cancelamentos: number
   todayRevenue: number
   monthRevenue: number
   newCustomersThisMonth: number
@@ -51,7 +50,8 @@ export default function DashboardPage() {
     const monthStart = startOfMonth(today).toISOString()
     const next7days = addDays(today, 7).toISOString()
 
-    const [todayRes, upcomingRes, monthRes, customersRes] = await Promise.all([
+    const [todayRes, upcomingRes, cancelRes, monthRes, customersRes] = await Promise.all([
+      // Agendamentos de hoje (exceto cancelados)
       supabase
         .from('appointments')
         .select('*, customer:customers(*), professional:professionals(*), service:services(*)')
@@ -59,6 +59,7 @@ export default function DashboardPage() {
         .lte('starts_at', todayEnd)
         .not('status', 'eq', 'cancelled')
         .order('starts_at'),
+      // Próximos 7 dias
       supabase
         .from('appointments')
         .select('*, customer:customers(*), professional:professionals(*), service:services(*)')
@@ -67,11 +68,20 @@ export default function DashboardPage() {
         .not('status', 'eq', 'cancelled')
         .order('starts_at')
         .limit(10),
+      // Cancelamentos de hoje
       supabase
         .from('appointments')
-        .select('status, service:services(price)')
+        .select('id')
+        .gte('starts_at', todayStart)
+        .lte('starts_at', todayEnd)
+        .eq('status', 'cancelled'),
+      // Faturamento do mês
+      supabase
+        .from('appointments')
+        .select('service:services(price)')
         .gte('starts_at', monthStart)
-        .neq('status', 'cancelled'),
+        .eq('status', 'completed'),
+      // Novos clientes do mês
       supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
@@ -79,16 +89,16 @@ export default function DashboardPage() {
     ])
 
     const appts = todayRes.data || []
+    const cancelados = cancelRes.data || []
     const month = monthRes.data || []
 
     setTodayAppts(appts)
     setUpcomingAppts(upcomingRes.data || [])
     setMetrics({
       todayTotal: appts.length,
-      confirmed: appts.filter(a => a.status === 'confirmed').length,
-      pending: appts.filter(a => a.status === 'pending').length,
-      cancelled: appts.filter(a => a.status === 'cancelled').length,
-      todayRevenue: appts.reduce((s, a) => s + ((a.service as any)?.price || 0), 0),
+      confirmacoes: appts.filter(a => (a as any).wa_confirmation_sent === true).length,
+      cancelamentos: cancelados.length,
+      todayRevenue: appts.filter(a => a.status === 'completed').reduce((s, a) => s + ((a.service as any)?.price || 0), 0),
       monthRevenue: month.reduce((s: number, a: any) => s + (a.service?.price || 0), 0),
       newCustomersThisMonth: customersRes.count || 0,
     })
@@ -106,6 +116,7 @@ export default function DashboardPage() {
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Carregando...</div>
 
   const allAppts = [...todayAppts, ...upcomingAppts]
+  const totalHoje = todayAppts.length + metrics!.cancelamentos
 
   return (
     <div>
@@ -116,12 +127,13 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {/* Métricas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { icon: CalendarCheck, label: 'Agendamentos hoje', value: metrics!.todayTotal, color: 'text-brand', bg: 'bg-brand-light' },
+          { icon: CalendarCheck, label: 'Agendamentos hoje', value: totalHoje, color: 'text-brand', bg: 'bg-brand-light' },
           { icon: Users, label: 'Novos clientes', value: metrics!.newCustomersThisMonth, color: 'text-blue-600', bg: 'bg-blue-50' },
           { icon: Wallet, label: 'Faturamento hoje', value: `R$${metrics!.todayRevenue.toFixed(2)}`, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { icon: X, label: 'Cancelamentos', value: metrics!.cancelled, color: 'text-red-500', bg: 'bg-red-50' },
+          { icon: X, label: 'Cancelamentos hoje', value: metrics!.cancelamentos, color: 'text-red-500', bg: 'bg-red-50' },
         ].map(({ icon: Icon, label, value, color, bg }) => (
           <div key={label} className="card">
             <div className="flex items-center gap-2 mb-3">
@@ -134,6 +146,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Próximos agendamentos */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -182,24 +195,25 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* Status das automações */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
             <MessageCircle size={16} className="text-brand" />
-            <h2 className="font-medium text-gray-900 text-sm">Status das automações</h2>
+            <h2 className="font-medium text-gray-900 text-sm">Status do dia</h2>
           </div>
           <div className="space-y-4">
             {[
-              { label: 'Confirmações enviadas', value: metrics!.confirmed, max: metrics!.todayTotal || 1 },
-              { label: 'Pendentes de resposta', value: metrics!.pending, max: metrics!.todayTotal || 1 },
-              { label: 'Cancelamentos hoje', value: metrics!.cancelled, max: metrics!.todayTotal || 1 },
-            ].map(({ label, value, max }) => (
+              { label: 'WhatsApp enviados hoje', value: metrics!.confirmacoes, max: totalHoje || 1, color: 'bg-brand' },
+              { label: 'Ativos (confirmados)', value: todayAppts.filter(a => a.status === 'confirmed').length, max: totalHoje || 1, color: 'bg-blue-400' },
+              { label: 'Cancelamentos hoje', value: metrics!.cancelamentos, max: totalHoje || 1, color: 'bg-red-400' },
+            ].map(({ label, value, max, color }) => (
               <div key={label}>
                 <div className="flex justify-between text-xs mb-1.5">
                   <span className="text-gray-500">{label}</span>
                   <strong className="text-gray-900">{value}</strong>
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-brand rounded-full" style={{ width: `${Math.round((value / max) * 100)}%` }} />
+                  <div className={`h-full ${color} rounded-full`} style={{ width: `${Math.round((value / max) * 100)}%` }} />
                 </div>
               </div>
             ))}
