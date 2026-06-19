@@ -102,7 +102,7 @@ export default function AgendamentoPage() {
       toast.error('Não é possível agendar para uma data ou horário no passado.'); return
     }
     setLoading(true)
-    const starts_at = sel.date + 'T' + sel.time + ':00-03:00'
+    const starts_at = `${sel.date}T${sel.time}:00-03:00`
     const res = await fetch('/api/appointments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,7 +117,14 @@ export default function AgendamentoPage() {
     const data = await res.json()
     setLoading(false)
     if (!res.ok) { toast.error(data.error || 'Erro ao agendar'); return }
-    toast.success('Agendamento confirmado! WhatsApp enviado automaticamente.')
+
+    if (data.whatsapp_sent === false) {
+      toast.success('Agendamento confirmado!')
+      toast.error('Não foi possível enviar a confirmação por WhatsApp. Verifique a conexão em Configurações.', { duration: 6000 })
+    } else {
+      toast.success('Agendamento confirmado! WhatsApp enviado automaticamente.')
+    }
+
     setStep(1)
     setSel({ service: null, professional: null, customer: null, date: getTodayBrasilia(), time: '', notes: '' })
     setCustomerSearch('')
@@ -137,8 +144,8 @@ export default function AgendamentoPage() {
           const n = i + 1; const done = step > n; const active = step === n
           return (
             <div key={s} className="flex items-center gap-2 shrink-0">
-              <div className={"flex items-center gap-2 text-sm font-medium " + (active ? 'text-brand' : done ? 'text-gray-400' : 'text-gray-300')}>
-                <div className={"w-6 h-6 rounded-full flex items-center justify-center text-xs " + (done ? 'bg-brand text-white' : active ? 'bg-brand-light text-brand border border-brand' : 'bg-gray-100 text-gray-400')}>
+              <div className={`flex items-center gap-2 text-sm font-medium ${active ? 'text-brand' : done ? 'text-gray-400' : 'text-gray-300'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${done ? 'bg-brand text-white' : active ? 'bg-brand-light text-brand border border-brand' : 'bg-gray-100 text-gray-400'}`}>
                   {done ? <Check size={12} /> : n}
                 </div>
                 {s}
@@ -228,7 +235,7 @@ export default function AgendamentoPage() {
                   const disabled = bookedSlots.includes(t) || isSlotInPast(sel.date, t)
                   return (
                     <button key={t} disabled={disabled} onClick={() => setSel(f => ({ ...f, time: t }))}
-                      className={"py-2 rounded-lg text-xs font-medium border transition-all " + (sel.time === t ? 'border-brand bg-brand text-white' : disabled ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' : 'border-gray-200 hover:border-brand hover:text-brand')}>
+                      className={`py-2 rounded-lg text-xs font-medium border transition-all ${sel.time === t ? 'border-brand bg-brand text-white' : disabled ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' : 'border-gray-200 hover:border-brand hover:text-brand'}`}>
                       {t}
                     </button>
                   )
@@ -278,7 +285,7 @@ export default function AgendamentoPage() {
             <h2 className="font-medium text-gray-900 mb-4">Confirmar agendamento</h2>
             <div className="space-y-3 mb-5">
               {[
-                ['Serviço', sel.service.name, 'R$' + Number(sel.service.price).toFixed(2) + ' - ' + sel.service.duration_min + 'min'],
+                ['Serviço', sel.service.name, `R$${Number(sel.service.price).toFixed(2)} · ${sel.service.duration_min}min`],
                 ['Profissional', sel.professional.name, sel.professional.specialty || ''],
                 ['Data', new Date(sel.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }), ''],
                 ['Horário', sel.time, ''],

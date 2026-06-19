@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     }).select().single()
     if (error || !appt) return NextResponse.json({ error: 'Erro ao criar agendamento' }, { status: 500 })
 
+    let whatsappSent = false
     try {
       const adminSupabase = createAdminSupabaseClient()
       const [customerRes, professionalRes, serviceRes, orgRes] = await Promise.all([
@@ -47,15 +48,15 @@ export async function POST(req: NextRequest) {
         orgName: orgRes.data?.name || 'Nosso estabelecimento',
       })
       const phone = customerRes.data?.phone || ''
-      const sent = await sendWhatsAppMessage(phone, message, orgRes.data?.wapi_instance_id || undefined, orgRes.data?.wapi_token || undefined)
+      whatsappSent = await sendWhatsAppMessage(phone, message, orgRes.data?.wapi_instance_id || undefined, orgRes.data?.wapi_token || undefined)
       await adminSupabase.from('messages_log').insert({
         org_id: profile.org_id, appointment_id: appt.id, type: 'confirmation',
-        phone, message, status: sent ? 'sent' : 'failed', sent_at: sent ? new Date().toISOString() : null,
+        phone, message, status: whatsappSent ? 'sent' : 'failed', sent_at: whatsappSent ? new Date().toISOString() : null,
       })
-      if (sent) await adminSupabase.from('appointments').update({ wa_confirmation_sent: true }).eq('id', appt.id)
+      if (whatsappSent) await adminSupabase.from('appointments').update({ wa_confirmation_sent: true }).eq('id', appt.id)
     } catch (waErr) { console.error('[WhatsApp]', waErr) }
 
-    return NextResponse.json({ success: true, appointment: appt })
+    return NextResponse.json({ success: true, appointment: appt, whatsapp_sent: whatsappSent })
   } catch (err) {
     console.error('[API Appointments POST]', err)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
