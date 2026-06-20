@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, X, MessageSquare } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, MessageSquare, Wallet, Banknote, CreditCard, QrCode } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Appointment } from '@/types'
 
@@ -21,6 +21,13 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   no_show:   { label: 'Faltou',     cls: 'pill-gray' },
 }
 
+const PAYMENT_METHODS = [
+  { id: 'pix', label: 'Pix', icon: QrCode, color: 'bg-teal-50 text-teal-600 border-teal-200' },
+  { id: 'dinheiro', label: 'Dinheiro', icon: Banknote, color: 'bg-green-50 text-green-600 border-green-200' },
+  { id: 'cartao_debito', label: 'Cartão Débito', icon: CreditCard, color: 'bg-blue-50 text-blue-600 border-blue-200' },
+  { id: 'cartao_credito', label: 'Cartão Crédito', icon: CreditCard, color: 'bg-purple-50 text-purple-600 border-purple-200' },
+]
+
 const SLOTS = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
 
 export default function AgendaPage() {
@@ -34,6 +41,8 @@ export default function AgendaPage() {
   const [reagDate, setReagDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [reagTime, setReagTime] = useState('')
   const [reagSaving, setReagSaving] = useState(false)
+  const [payModal, setPayModal] = useState(false)
+  const [payAppt, setPayAppt] = useState<Appointment | null>(null)
   const supabase = createClient()
 
   useEffect(() => { loadMonth() }, [currentMonth])
@@ -61,8 +70,16 @@ export default function AgendaPage() {
   }
 
   async function changeStatus(id: string, status: string) {
+    if (status === 'completed') {
+      const appt = dayAppts.find(a => a.id === id)
+      if (appt) {
+        setPayAppt(appt)
+        setPayModal(true)
+        return
+      }
+    }
     await supabase.from('appointments').update({ status }).eq('id', id)
-    toast.success(status === 'completed' ? 'Marcado como concluído' : status === 'cancelled' ? 'Agendamento cancelado' : 'Status atualizado')
+    toast.success(status === 'cancelled' ? 'Agendamento cancelado' : 'Status atualizado')
     loadMonth()
     if (status === 'cancelled') {
       fetch('/api/whatsapp/send', {
@@ -71,6 +88,15 @@ export default function AgendaPage() {
         body: JSON.stringify({ appointmentId: id, type: 'cancellation' }),
       })
     }
+  }
+
+  async function confirmPayment(method: string) {
+    if (!payAppt) return
+    await supabase.from('appointments').update({ status: 'completed', payment_method: method }).eq('id', payAppt.id)
+    toast.success('Atendimento concluído e pagamento registrado!')
+    setPayModal(false)
+    setPayAppt(null)
+    loadMonth()
   }
 
   function openReag(a: Appointment) {
@@ -123,7 +149,6 @@ export default function AgendaPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Calendário */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))}
@@ -155,7 +180,6 @@ export default function AgendaPage() {
           </div>
         </div>
 
-        {/* Agendamentos do dia */}
         <div className="card">
           <h2 className="font-medium text-gray-900 mb-4 text-sm">
             {selectedDay.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', timeZone: TZ })}
@@ -169,6 +193,7 @@ export default function AgendaPage() {
             <div className="space-y-3">
               {dayAppts.map(a => {
                 const s = STATUS[a.status] || STATUS.pending
+                const pm = PAYMENT_METHODS.find(p => p.id === (a as any).payment_method)
                 return (
                   <div key={a.id} className="p-3 border border-gray-100 rounded-xl hover:border-gray-200 transition-colors">
                     <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -186,11 +211,16 @@ export default function AgendaPage() {
                       <span className={s.cls}>{s.label}</span>
                     </div>
 
-                    {/* Observações */}
                     {a.notes && (
                       <div className="flex items-start gap-1.5 mt-2 mb-2 px-1">
                         <MessageSquare size={12} className="text-gray-400 mt-0.5 shrink-0" />
                         <p className="text-xs text-gray-500 italic">{a.notes}</p>
+                      </div>
+                    )}
+
+                    {a.status === 'completed' && pm && (
+                      <div className={`inline-flex items-center gap-1.5 mt-1 mb-1 px-2 py-1 rounded-lg text-xs font-medium border ${pm.color}`}>
+                        <pm.icon size={12} /> Pago via {pm.label}
                       </div>
                     )}
 
@@ -223,6 +253,31 @@ export default function AgendaPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de forma de pagamento */}
+      {payModal && payAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-semibold text-gray-900 flex items-center gap-2"><Wallet size={18} className="text-brand" /> Como foi pago?</h2>
+              <button onClick={() => setPayModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="mb-4 p-3 bg-gray-50 rounded-xl text-sm text-gray-600">
+              <strong>{(payAppt.customer as any)?.name}</strong> — {(payAppt.service as any)?.name}<br />
+              <span className="text-xs text-gray-400">Valor: R${Number((payAppt.service as any)?.price || 0).toFixed(2)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {PAYMENT_METHODS.map(pm => (
+                <button key={pm.id} onClick={() => confirmPayment(pm.id)}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all hover:scale-[1.02] ${pm.color}`}>
+                  <pm.icon size={22} />
+                  <span className="text-xs font-medium">{pm.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Reagendamento */}
       {reagModal && reagAppt && (

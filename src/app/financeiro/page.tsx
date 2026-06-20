@@ -1,53 +1,93 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import { format, startOfMonth, endOfMonth, addDays, startOfDay, endOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, TrendingDown, Wallet, ReceiptText } from 'lucide-react'
+import { Wallet, TrendingUp, Clock, QrCode, Banknote, CreditCard, AlertCircle } from 'lucide-react'
+
+const TZ = 'America/Sao_Paulo'
+
+const PAYMENT_METHODS = [
+  { id: 'pix', label: 'Pix', icon: QrCode, color: 'text-teal-600', bg: 'bg-teal-50' },
+  { id: 'dinheiro', label: 'Dinheiro', icon: Banknote, color: 'text-green-600', bg: 'bg-green-50' },
+  { id: 'cartao_debito', label: 'Cartão Débito', icon: CreditCard, color: 'text-blue-600', bg: 'bg-blue-50' },
+  { id: 'cartao_credito', label: 'Cartão Crédito', icon: CreditCard, color: 'text-purple-600', bg: 'bg-purple-50' },
+]
 
 export default function FinanceiroPage() {
-  const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [recebido, setRecebido] = useState(0)
+  const [porFormaPagamento, setPorFormaPagamento] = useState<Record<string, number>>({})
+  const [aReceber7, setAReceber7] = useState(0)
+  const [aReceber30, setAReceber30] = useState(0)
+  const [qtdAtendimentos, setQtdAtendimentos] = useState(0)
+  const [qtdAReceber7, setQtdAReceber7] = useState(0)
   const supabase = createClient()
 
   useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
-    const now = new Date()
-    const monthStart = startOfMonth(now).toISOString()
-    const monthEnd = endOfMonth(now).toISOString()
-    const lastMonthStart = startOfMonth(subMonths(now, 1)).toISOString()
-    const lastMonthEnd = endOfMonth(subMonths(now, 1)).toISOString()
+    const today = new Date()
+    const monthStart = startOfMonth(today)
+    const monthEnd = endOfMonth(today)
+    const todayEnd = endOfDay(today)
+    const next7 = addDays(today, 7)
+    const next30 = addDays(today, 30)
 
-    const [curr, last, byService] = await Promise.all([
-      supabase.from('appointments').select('service:services(name,price)').gte('starts_at', monthStart).lte('starts_at', monthEnd).not('status', 'in', '(cancelled,no_show)'),
-      supabase.from('appointments').select('service:services(price)').gte('starts_at', lastMonthStart).lte('starts_at', lastMonthEnd).not('status', 'in', '(cancelled,no_show)'),
-      supabase.from('appointments').select('service:services(name,price)').gte('starts_at', monthStart).lte('starts_at', monthEnd).eq('status', 'completed'),
+    const [completedRes, receber7Res, receber30Res] = await Promise.all([
+      // Recebido no mês (concluídos)
+      supabase
+        .from('appointments')
+        .select('payment_method, service:services(price)')
+        .gte('starts_at', monthStart.toISOString())
+        .lte('starts_at', monthEnd.toISOString())
+        .eq('status', 'completed'),
+      // A receber nos próximos 7 dias (confirmados, futuro)
+      supabase
+        .from('appointments')
+        .select('service:services(price)')
+        .gt('starts_at', todayEnd.toISOString())
+        .lte('starts_at', next7.toISOString())
+        .eq('status', 'confirmed'),
+      // A receber nos próximos 30 dias
+      supabase
+        .from('appointments')
+        .select('service:services(price)')
+        .gt('starts_at', todayEnd.toISOString())
+        .lte('starts_at', next30.toISOString())
+        .eq('status', 'confirmed'),
     ])
 
-    const revenue = (curr.data || []).reduce((s: number, a: any) => s + (a.service?.price || 0), 0)
-    const lastRevenue = (last.data || []).reduce((s: number, a: any) => s + (a.service?.price || 0), 0)
-    const count = curr.data?.length || 0
-    const ticketMedio = count > 0 ? revenue / count : 0
+    const completed = completedRes.data || []
+    const receber7 = receber7Res.data || []
+    const receber30 = receber30Res.data || []
 
-    // Receita por serviço
-    const serviceMap: Record<string, { name: string; total: number; count: number }> = {}
-    ;(byService.data || []).forEach((a: any) => {
-      const name = a.service?.name || 'Desconhecido'
-      const price = a.service?.price || 0
-      if (!serviceMap[name]) serviceMap[name] = { name, total: 0, count: 0 }
-      serviceMap[name].total += price
-      serviceMap[name].count++
+    // Total recebido
+    const totalRecebido = completed.reduce((s, a: any) => s + (a.service?.price || 0), 0)
+    setRecebido(totalRecebido)
+    setQtdAtendimentos(completed.length)
+
+    // Por forma de pagamento
+    const porForma: Record<string, number> = {}
+    completed.forEach((a: any) => {
+      const method = a.payment_method || 'nao_informado'
+      porForma[method] = (porForma[method] || 0) + (a.service?.price || 0)
     })
+    setPorFormaPagamento(porForma)
 
-    setData({ revenue, lastRevenue, count, ticketMedio, services: Object.values(serviceMap).sort((a, b) => b.total - a.total) })
+    // A receber
+    setAReceber7(receber7.reduce((s, a: any) => s + (a.service?.price || 0), 0))
+    setQtdAReceber7(receber7.length)
+    setAReceber30(receber30.reduce((s, a: any) => s + (a.service?.price || 0), 0))
+
     setLoading(false)
   }
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Carregando...</div>
+  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Carregando...</div>
 
-  const growth = data.lastRevenue > 0 ? ((data.revenue - data.lastRevenue) / data.lastRevenue) * 100 : 0
+  const totalPorForma = Object.values(porFormaPagamento).reduce((s, v) => s + v, 0)
+  const naoInformado = porFormaPagamento['nao_informado'] || 0
 
   return (
     <div>
@@ -56,45 +96,84 @@ export default function FinanceiroPage() {
         <p className="text-sm text-gray-500 mt-0.5">{format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })}</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { icon: Wallet, label: 'Receita do mês', value: `R$${data.revenue.toFixed(2)}`, sub: growth >= 0 ? `↑ ${growth.toFixed(0)}% vs mês anterior` : `↓ ${Math.abs(growth).toFixed(0)}% vs mês anterior`, green: growth >= 0 },
-          { icon: ReceiptText, label: 'Total atendimentos', value: data.count, sub: 'No mês atual' },
-          { icon: TrendingUp, label: 'Ticket médio', value: `R$${data.ticketMedio.toFixed(2)}`, sub: 'Por atendimento' },
-          { icon: TrendingDown, label: 'Mês anterior', value: `R$${data.lastRevenue.toFixed(2)}`, sub: 'Para comparação' },
-        ].map(({ icon: Icon, label, value, sub, green }) => (
-          <div key={label} className="card">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="bg-brand-light p-1.5 rounded-lg"><Icon size={15} className="text-brand" /></div>
-              <span className="text-xs text-gray-500">{label}</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-900">{value}</div>
-            {sub && <div className={`text-xs mt-1 ${green === false ? 'text-red-400' : green ? 'text-brand' : 'text-gray-400'}`}>{sub}</div>}
+      {/* Cards principais */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-emerald-50 p-1.5 rounded-lg"><Wallet size={15} className="text-emerald-600" /></div>
+            <span className="text-xs text-gray-500">Recebido no mês</span>
           </div>
-        ))}
+          <div className="text-2xl font-bold text-gray-900">R${recebido.toFixed(2)}</div>
+          <div className="text-xs text-gray-400 mt-1">{qtdAtendimentos} atendimento{qtdAtendimentos !== 1 ? 's' : ''} concluído{qtdAtendimentos !== 1 ? 's' : ''}</div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-amber-50 p-1.5 rounded-lg"><Clock size={15} className="text-amber-600" /></div>
+            <span className="text-xs text-gray-500">A receber (7 dias)</span>
+          </div>
+          <div className="text-2xl font-bold text-amber-600">R${aReceber7.toFixed(2)}</div>
+          <div className="text-xs text-gray-400 mt-1">{qtdAReceber7} agendamento{qtdAReceber7 !== 1 ? 's' : ''} confirmado{qtdAReceber7 !== 1 ? 's' : ''}</div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-blue-50 p-1.5 rounded-lg"><TrendingUp size={15} className="text-blue-600" /></div>
+            <span className="text-xs text-gray-500">A receber (30 dias)</span>
+          </div>
+          <div className="text-2xl font-bold text-blue-600">R${aReceber30.toFixed(2)}</div>
+          <div className="text-xs text-gray-400 mt-1">Previsão total do mês</div>
+        </div>
       </div>
 
-      {/* Receita por serviço */}
+      {/* Aviso sobre previsão */}
+      <div className="flex items-start gap-2 mb-6 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700">
+        <AlertCircle size={14} className="mt-0.5 shrink-0" />
+        <span>Os valores "a receber" são uma <strong>previsão</strong> baseada em agendamentos confirmados. Cancelamentos e faltas reduzem esse valor.</span>
+      </div>
+
+      {/* Divisão por forma de pagamento */}
       <div className="card">
-        <h2 className="font-medium text-gray-900 mb-4 text-sm">Receita por serviço (mês atual — concluídos)</h2>
-        {data.services.length === 0 ? (
-          <p className="text-sm text-gray-400">Nenhum atendimento concluído este mês.</p>
+        <h2 className="font-medium text-gray-900 mb-4 text-sm">Recebido por forma de pagamento</h2>
+
+        {totalPorForma === 0 ? (
+          <div className="text-center py-8 text-gray-400 text-sm">
+            Nenhum pagamento registrado este mês ainda.
+          </div>
         ) : (
           <div className="space-y-4">
-            {data.services.map((s: any) => {
-              const pct = data.services[0]?.total > 0 ? (s.total / data.services[0].total) * 100 : 0
+            {PAYMENT_METHODS.map(pm => {
+              const valor = porFormaPagamento[pm.id] || 0
+              const pct = totalPorForma > 0 ? (valor / totalPorForma) * 100 : 0
+              if (valor === 0) return null
               return (
-                <div key={s.name}>
-                  <div className="flex justify-between text-sm mb-1.5">
-                    <span className="text-gray-600">{s.name} <span className="text-gray-400 text-xs">({s.count}x)</span></span>
-                    <strong className="text-gray-900">R${s.total.toFixed(2)}</strong>
+                <div key={pm.id}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className={`${pm.bg} p-1 rounded`}><pm.icon size={13} className={pm.color} /></div>
+                      <span className="text-sm text-gray-700">{pm.label}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-medium text-gray-900">R${valor.toFixed(2)}</span>
+                      <span className="text-xs text-gray-400 ml-2">({pct.toFixed(0)}%)</span>
+                    </div>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-brand rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    <div className={`h-full rounded-full ${pm.id === 'pix' ? 'bg-teal-500' : pm.id === 'dinheiro' ? 'bg-green-500' : pm.id === 'cartao_debito' ? 'bg-blue-500' : 'bg-purple-500'}`}
+                      style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               )
             })}
+
+            {naoInformado > 0 && (
+              <div className="pt-3 border-t border-gray-100">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Sem forma de pagamento informada</span>
+                  <span className="font-medium text-gray-500">R${naoInformado.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
