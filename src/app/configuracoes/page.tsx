@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { MessageCircle, Save, CheckCircle, XCircle, Loader2, ExternalLink, QrCode, Building2, Upload, Phone, MapPin } from 'lucide-react'
+import { MessageCircle, Save, CheckCircle, XCircle, Loader2, ExternalLink, QrCode, Building2, Upload, Phone, MapPin, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function ConfiguracoesPage() {
@@ -305,6 +305,32 @@ export default function ConfiguracoesPage() {
                     <li>Cole os dados abaixo e clique em Salvar</li>
                     <li>Clique em <strong>Gerar QR Code</strong> e escaneie com o WhatsApp</li>
                   </ol>
+                </div>
+
+                {/* Configuração Assistida */}
+                <div className="relative overflow-hidden rounded-xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4 mb-5">
+                  <div className="absolute top-0 right-0 bg-amber-400 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
+                    RECOMENDADO
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-400 flex items-center justify-center shrink-0">
+                      <Sparkles size={18} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 text-sm mb-1">Não quer configurar sozinho?</h3>
+                      <p className="text-xs text-gray-600 mb-3">
+                        Nossa equipe conecta seu WhatsApp por você — criação da instância, conexão, testes e configuração das automações. Tudo prontinho em poucos minutos.
+                      </p>
+                      <a
+                        href="https://buy.stripe.com/test_28E7sEc6y9w85KkbqYcAo00"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                      >
+                        <Sparkles size={14} /> Quero Configuração Assistida — R$79,90
+                      </a>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
