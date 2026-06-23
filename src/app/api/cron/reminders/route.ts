@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase-server'
 import { sendWhatsAppMessage, buildMessage } from '@/lib/whatsapp'
 
-// Protege a rota para só ser chamada pelo serviço de cron autorizado
 function isAuthorized(req: NextRequest): boolean {
   const secret = req.nextUrl.searchParams.get('secret') || req.headers.get('x-cron-secret')
   return secret === process.env.CRON_SECRET
@@ -14,23 +13,32 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createAdminSupabaseClient()
+  // now em UTC — os timestamps no banco são timestamptz, então comparações em UTC funcionam
+  // corretamente independente do fuso horário de exibição (America/Sao_Paulo é só para exibir nas mensagens)
   const now = new Date()
 
-  const results = { reminder_24h: 0, reminder_1h: 0, errors: 0 }
+  const results: any = { reminder_24h: 0, reminder_1h: 0, errors: 0, debug: {} }
 
   try {
     // ===== LEMBRETE 24H ANTES =====
-    // Janela: agendamentos entre 23h45 e 24h15 a partir de agora
+    // Janela: agendamentos entre 23h45 e 24h15 a partir de agora (em UTC, que é o que está salvo no banco)
     const window24Start = new Date(now.getTime() + 23.75 * 60 * 60 * 1000)
     const window24End = new Date(now.getTime() + 24.25 * 60 * 60 * 1000)
 
-    const { data: appts24h } = await supabase
+    results.debug.now_utc = now.toISOString()
+    results.debug.window24_start = window24Start.toISOString()
+    results.debug.window24_end = window24End.toISOString()
+
+    const { data: appts24h, error: err24 } = await supabase
       .from('appointments')
       .select('*, customer:customers(name, phone), professional:professionals(name), service:services(name), organization:organizations(name, wapi_instance_id, wapi_token)')
       .eq('status', 'confirmed')
       .eq('wa_reminder_24h_sent', false)
       .gte('starts_at', window24Start.toISOString())
       .lte('starts_at', window24End.toISOString())
+
+    if (err24) console.error('[Cron 24h] Erro na query:', err24)
+    results.debug.appts24h_found = appts24h?.length || 0
 
     for (const appt of appts24h || []) {
       try {
@@ -66,6 +74,9 @@ export async function GET(req: NextRequest) {
     const window1Start = new Date(now.getTime() + 0.75 * 60 * 60 * 1000)
     const window1End = new Date(now.getTime() + 1.25 * 60 * 60 * 1000)
 
+    results.debug.window1_start = window1Start.toISOString()
+    results.debug.window1_end = window1End.toISOString()
+
     const { data: appts1h } = await supabase
       .from('appointments')
       .select('*, customer:customers(name, phone), professional:professionals(name), service:services(name), organization:organizations(name, wapi_instance_id, wapi_token)')
@@ -73,6 +84,8 @@ export async function GET(req: NextRequest) {
       .eq('wa_reminder_1h_sent', false)
       .gte('starts_at', window1Start.toISOString())
       .lte('starts_at', window1End.toISOString())
+
+    results.debug.appts1h_found = appts1h?.length || 0
 
     for (const appt of appts1h || []) {
       try {
