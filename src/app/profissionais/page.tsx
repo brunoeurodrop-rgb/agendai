@@ -10,6 +10,7 @@ export default function ProfissionaisPage() {
   const [list, setList] = useState<Professional[]>([])
   const [orgId, setOrgId] = useState<string | null>(null)
   const [plano, setPlano] = useState<string>('trial')
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Professional | null>(null)
   const [form, setForm] = useState({ name: '', specialty: '', phone: '', email: '', bio: '', active: true })
@@ -20,6 +21,7 @@ export default function ProfissionaisPage() {
   async function init() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setUserEmail(user.email || null)
     const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     if (!profile) return
     setOrgId(profile.org_id)
@@ -34,7 +36,7 @@ export default function ProfissionaisPage() {
   }
 
   function openNew() {
-    const limite = getLimite(plano, 'profissionais')
+    const limite = getLimite(plano, 'profissionais', userEmail)
     const ativos = list.filter(p => p.active).length
     if (ativos >= limite) {
       toast.error(`Seu plano ${plano === 'trial' ? 'gratuito' : plano} permite apenas ${limite} profissional${limite > 1 ? 'is' : ''}. Faça upgrade para adicionar mais.`)
@@ -72,7 +74,7 @@ export default function ProfissionaisPage() {
     load()
   }
 
-  const limite = getLimite(plano, 'profissionais')
+  const limite = getLimite(plano, 'profissionais', userEmail)
   const ativos = list.filter(p => p.active).length
   const atingiuLimite = ativos >= limite
 

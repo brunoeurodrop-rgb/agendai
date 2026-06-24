@@ -8,10 +8,11 @@ import type { Service } from '@/types'
 
 const COLORS = ['#00C896','#7F77DD','#D4537E','#378ADD','#F59E0B','#10B981','#EF4444','#6366F1']
 
-export default function ServiçosPage() {
+export default function ServicosPage() {
   const [services, setServices] = useState<Service[]>([])
   const [orgId, setOrgId] = useState<string | null>(null)
   const [plano, setPlano] = useState<string>('trial')
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Service | null>(null)
   const [form, setForm] = useState({ name: '', description: '', duration_min: '60', price: '', color: '#00C896', active: true })
@@ -22,6 +23,7 @@ export default function ServiçosPage() {
   async function init() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setUserEmail(user.email || null)
     const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     if (!profile) return
     setOrgId(profile.org_id)
@@ -36,7 +38,7 @@ export default function ServiçosPage() {
   }
 
   function openNew() {
-    const limite = getLimite(plano, 'servicos')
+    const limite = getLimite(plano, 'servicos', userEmail)
     const ativos = services.filter(s => s.active).length
     if (ativos >= limite) {
       toast.error(`Seu plano ${plano === 'trial' ? 'gratuito' : plano} permite até ${limite} serviços. Faça upgrade para adicionar mais.`)
@@ -57,13 +59,8 @@ export default function ServiçosPage() {
     if (!form.name || !form.price) { toast.error('Nome e preço são obrigatórios'); return }
     if (!orgId) return
     const payload = {
-      org_id: orgId,
-      name: form.name,
-      description: form.description || null,
-      duration_min: parseInt(form.duration_min),
-      price: parseFloat(form.price),
-      color: form.color,
-      active: form.active,
+      org_id: orgId, name: form.name, description: form.description || null,
+      duration_min: parseInt(form.duration_min), price: parseFloat(form.price), color: form.color, active: form.active,
     }
     if (editing) {
       const { error } = await supabase.from('services').update(payload).eq('id', editing.id)
@@ -82,7 +79,7 @@ export default function ServiçosPage() {
     load()
   }
 
-  const limite = getLimite(plano, 'servicos')
+  const limite = getLimite(plano, 'servicos', userEmail)
   const ativos = services.filter(s => s.active).length
   const atingiuLimite = ativos >= limite
 

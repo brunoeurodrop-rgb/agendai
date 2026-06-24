@@ -17,6 +17,7 @@ type CommissionResult = {
 }
 
 const PLANOS_COM_PDF = ['pro', 'enterprise']
+const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
 
 export default function ComissoesPage() {
   const [tab, setTab] = useState<'config' | 'relatorio'>('relatorio')
@@ -25,6 +26,7 @@ export default function ComissoesPage() {
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [orgId, setOrgId] = useState<string | null>(null)
   const [plano, setPlano] = useState<string>('trial')
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [results, setResults] = useState<CommissionResult[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState(false)
@@ -35,13 +37,14 @@ export default function ComissoesPage() {
   const [quinzena, setQuinzena] = useState<1 | 2>(1)
 
   const supabase = createClient()
-  const podePDF = PLANOS_COM_PDF.includes(plano)
+  const podePDF = PLANOS_COM_PDF.includes(plano) || userEmail === ADMIN_EMAIL
 
   useEffect(() => { init() }, [])
 
   async function init() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setUserEmail(user.email || null)
     const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     if (!profile) return
     setOrgId(profile.org_id)

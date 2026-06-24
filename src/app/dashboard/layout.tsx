@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase-client'
 import {
   LayoutDashboard, Calendar, Plus, MessageCircle, Users,
   Scissors, UserCheck, Wallet, BarChart2, Bell, Star,
-  LogOut, Menu, X, ChevronLeft, Percent, HelpCircle, Settings
+  LogOut, Menu, X, ChevronLeft, Percent, HelpCircle, Settings, Shield
 } from 'lucide-react'
 import TrialBanner from '@/components/TrialBanner'
 
@@ -34,16 +34,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const supabase = createClient()
   const [open, setOpen] = useState(false)
   const [dateStr, setDateStr] = useState('')
+  const [userName, setUserName] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
   const showBack = !ROOT_PAGES.includes(pathname)
 
   useEffect(() => {
     setDateStr(new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))
+    loadUser()
   }, [])
+
+  async function loadUser() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: profile } = await supabase.from('profiles').select('name, email').eq('id', user.id).single()
+    if (profile) {
+      setUserName(profile.name || profile.email || '')
+      setIsAdmin(profile.email === 'bkpimenta81@gmail.com')
+    }
+  }
 
   async function logout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
+
+  const initials = userName
+    ? userName.trim().split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()
+    : '...'
 
   const Sidebar = () => (
     <aside className="flex flex-col h-full bg-white border-r border-gray-100 w-52 shrink-0">
@@ -72,6 +89,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             })}
           </div>
         ))}
+        {isAdmin && (
+          <div className="mb-4">
+            <div className="text-[10px] font-semibold text-amber-500 uppercase tracking-widest px-2 mb-1">Admin</div>
+            <Link href="/admin" onClick={() => setOpen(false)}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-0.5 transition-all ${
+                pathname === '/admin' ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-500 hover:bg-amber-50 hover:text-amber-700'
+              }`}>
+              <Shield size={16} />Painel Admin
+            </Link>
+          </div>
+        )}
       </nav>
       <div className="p-3 border-t border-gray-100 space-y-0.5">
         <Link href="/configuracoes" onClick={() => setOpen(false)}
@@ -127,7 +155,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </div>
           <div className="md:hidden text-lg font-bold text-brand">Agenda<span className="text-gray-900">AI</span></div>
-          <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark text-xs font-semibold flex items-center justify-center">BP</div>
+          <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark text-xs font-semibold flex items-center justify-center" title={userName}>
+            {initials}
+          </div>
         </div>
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           {children}

@@ -10,6 +10,7 @@ export default function ClientesPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [orgId, setOrgId] = useState<string | null>(null)
   const [plano, setPlano] = useState<string>('trial')
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Customer | null>(null)
@@ -21,6 +22,7 @@ export default function ClientesPage() {
   async function init() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setUserEmail(user.email || null)
     const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     if (!profile) return
     setOrgId(profile.org_id)
@@ -35,7 +37,7 @@ export default function ClientesPage() {
   }
 
   function openNew() {
-    const limite = getLimite(plano, 'clientes')
+    const limite = getLimite(plano, 'clientes', userEmail)
     if (customers.length >= limite) {
       toast.error(`Seu plano ${plano === 'trial' ? 'gratuito' : plano} permite até ${limite} clientes. Faça upgrade para adicionar mais.`)
       return
@@ -82,7 +84,7 @@ export default function ClientesPage() {
     (c.email || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const limite = getLimite(plano, 'clientes')
+  const limite = getLimite(plano, 'clientes', userEmail)
   const atingiuLimite = customers.length >= limite
 
   return (

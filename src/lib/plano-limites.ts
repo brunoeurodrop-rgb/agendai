@@ -7,7 +7,21 @@ export const LIMITES = {
 
 export type Plano = keyof typeof LIMITES
 
-export function getLimite(plano: string, recurso: keyof typeof LIMITES.trial): number {
-  const p = (plano as Plano) in LIMITES ? (plano as Plano) : 'trial'
+// E-mail do administrador com acesso total ao sistema, independente do plano
+export const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  return email === ADMIN_EMAIL
+}
+
+// Retorna o plano "efetivo" — admin sempre tem acesso enterprise
+export function getEffectivePlan(plano: string, userEmail?: string | null): string {
+  if (isAdminEmail(userEmail)) return 'enterprise'
+  return plano
+}
+
+export function getLimite(plano: string, recurso: keyof typeof LIMITES.trial, userEmail?: string | null): number {
+  const effectivePlano = getEffectivePlan(plano, userEmail)
+  const p = (effectivePlano as Plano) in LIMITES ? (effectivePlano as Plano) : 'trial'
   return LIMITES[p][recurso]
 }
