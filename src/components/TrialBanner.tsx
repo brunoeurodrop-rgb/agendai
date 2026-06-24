@@ -1,12 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { AlertTriangle, X, CreditCard, Clock, CheckCircle } from 'lucide-react'
+import { AlertTriangle, X, CreditCard, Clock, CheckCircle, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { differenceInDays } from 'date-fns'
 
+const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
+
 type BannerInfo = {
-  tipo: 'trial' | 'expirando' | 'vencido' | 'ativo' | null
+  tipo: 'trial' | 'expirando' | 'vencido' | 'ativo' | 'admin' | null
   dias?: number
   plano?: string
 }
@@ -22,6 +24,12 @@ export default function TrialBanner() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    // Admin tem banner próprio, sem falar de plano
+    if (user.email === ADMIN_EMAIL) {
+      setInfo({ tipo: 'admin' })
+      return
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('org_id')
@@ -36,13 +44,11 @@ export default function TrialBanner() {
       .single()
     if (!org) return
 
-    // Assinante ativo
     if (org.plan === 'starter' || org.plan === 'pro' || org.plan === 'enterprise') {
       setInfo({ tipo: 'ativo', plano: org.plan })
       return
     }
 
-    // Trial
     if (org.trial_ends_at) {
       const dias = differenceInDays(new Date(org.trial_ends_at), new Date())
       if (dias < 0) {
@@ -57,7 +63,21 @@ export default function TrialBanner() {
 
   if (!info.tipo || fechado) return null
 
-  // Assinante ativo — banner verde discreto
+  // Admin — banner discreto âmbar
+  if (info.tipo === 'admin') {
+    return (
+      <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-sm text-amber-700">
+          <Shield size={15} />
+          Modo administrador — acesso total liberado
+        </div>
+        <button onClick={() => setFechado(true)} className="text-amber-400 hover:text-amber-600">
+          <X size={15} />
+        </button>
+      </div>
+    )
+  }
+
   if (info.tipo === 'ativo') {
     return (
       <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-2 flex items-center justify-between gap-4">
@@ -72,7 +92,6 @@ export default function TrialBanner() {
     )
   }
 
-  // Trial vencido — vermelho bloqueante
   if (info.tipo === 'vencido') {
     return (
       <div className="bg-red-500 text-white px-4 py-3 flex items-center justify-between gap-4">
@@ -88,7 +107,6 @@ export default function TrialBanner() {
     )
   }
 
-  // Trial expirando — amarelo de alerta
   if (info.tipo === 'expirando') {
     return (
       <div className="bg-amber-400 text-amber-900 px-4 py-2.5 flex items-center justify-between gap-4">
@@ -111,7 +129,6 @@ export default function TrialBanner() {
     )
   }
 
-  // Trial normal — azul informativo
   return (
     <div className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 flex items-center justify-between gap-4">
       <div className="flex items-center gap-2 text-sm text-blue-700">

@@ -27,6 +27,7 @@ export default function ComissoesPage() {
   const [orgId, setOrgId] = useState<string | null>(null)
   const [plano, setPlano] = useState<string>('trial')
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [userLoaded, setUserLoaded] = useState(false)
   const [results, setResults] = useState<CommissionResult[]>([])
   const [loading, setLoading] = useState(false)
   const [modal, setModal] = useState(false)
@@ -45,6 +46,7 @@ export default function ComissoesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setUserEmail(user.email || null)
+    setUserLoaded(true)
     const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     if (!profile) return
     setOrgId(profile.org_id)
@@ -293,7 +295,7 @@ export default function ComissoesPage() {
                 </div>
               )}
             </div>
-            {!podePDF && (
+            {!podePDF && userLoaded && (
               <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 flex items-center justify-between gap-4">
                 <span>A exportação em PDF está disponível apenas no plano <strong>Pro</strong>.</span>
                 <a href="/planos" className="btn-primary text-xs px-3 py-1.5 shrink-0">Fazer upgrade</a>
