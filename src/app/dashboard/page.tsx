@@ -1,10 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { format, startOfDay, endOfDay, startOfMonth, addDays } from 'date-fns'
+import { format, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { CalendarCheck, Users, Wallet, X, MessageCircle, Clock, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import type { Appointment } from '@/types'
 
 const TZ = 'America/Sao_Paulo'
@@ -25,9 +26,22 @@ function formatDateShort(dateStr: string) {
   return date.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ })
 }
 
+// Calcula o início e fim do dia de HOJE em horário de Brasília, retornando os
+// timestamps UTC corretos para usar nas queries (já que o banco salva tudo em UTC).
+function getTodayRangeBrasiliaAsUTC() {
+  const now = new Date()
+  // Pega a data de hoje no fuso de Brasília como string "YYYY-MM-DD"
+  const todayStr = now.toLocaleDateString('en-CA', { timeZone: TZ }) // formato YYYY-MM-DD
+  // Meia-noite em Brasília = 03:00 UTC do mesmo dia (Brasília é UTC-3)
+  const start = new Date(`${todayStr}T00:00:00-03:00`)
+  const end = new Date(`${todayStr}T23:59:59.999-03:00`)
+  return { start, end }
+}
+
 interface Metrics {
   todayTotal: number
-  confirmacoes: number
+  whatsappEnviadosHoje: number
+  ativosConfirmados: number
   cancelamentos: number
   todayRevenue: number
   monthRevenue: number
@@ -40,52 +54,67 @@ export default function DashboardPage() {
   const [upcomingAppts, setUpcomingAppts] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+  const pathname = usePathname()
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, [pathname])
+
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') loadData()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
 
   async function loadData() {
-    const today = new Date()
-    const todayStart = startOfDay(today).toISOString()
-    const todayEnd = endOfDay(today).toISOString()
-    const monthStart = startOfMonth(today).toISOString()
-    const next7days = addDays(today, 7).toISOString()
+    const { start: todayStart, end: todayEnd } = getTodayRangeBrasiliaAsUTC()
+    const todayStartISO = todayStart.toISOString()
+    const todayEndISO = todayEnd.toISOString()
 
-    const [todayRes, upcomingRes, cancelRes, monthRes, customersRes] = await Promise.all([
-      // Agendamentos de hoje (exceto cancelados)
+    // Início do mês em Brasília (dia 1, 00:00) convertido para UTC
+    const now = new Date()
+    const monthStr = now.toLocaleDateString('en-CA', { timeZone: TZ }).slice(0, 7) // YYYY-MM
+    const monthStart = new Date(`${monthStr}-01T00:00:00-03:00`).toISOString()
+    const next7days = addDays(todayEnd, 7).toISOString()
+
+    const [todayRes, upcomingRes, cancelRes, monthRes, customersRes, msgsHojeRes] = await Promise.all([
       supabase
         .from('appointments')
         .select('*, customer:customers(*), professional:professionals(*), service:services(*)')
-        .gte('starts_at', todayStart)
-        .lte('starts_at', todayEnd)
+        .gte('starts_at', todayStartISO)
+        .lte('starts_at', todayEndISO)
         .not('status', 'eq', 'cancelled')
         .order('starts_at'),
-      // Próximos 7 dias
       supabase
         .from('appointments')
         .select('*, customer:customers(*), professional:professionals(*), service:services(*)')
-        .gt('starts_at', todayEnd)
+        .gt('starts_at', todayEndISO)
         .lte('starts_at', next7days)
         .not('status', 'eq', 'cancelled')
         .order('starts_at')
         .limit(10),
-      // Cancelamentos de hoje
       supabase
         .from('appointments')
         .select('id')
-        .gte('starts_at', todayStart)
-        .lte('starts_at', todayEnd)
+        .gte('starts_at', todayStartISO)
+        .lte('starts_at', todayEndISO)
         .eq('status', 'cancelled'),
-      // Faturamento do mês
       supabase
         .from('appointments')
         .select('service:services(price)')
         .gte('starts_at', monthStart)
         .eq('status', 'completed'),
-      // Novos clientes do mês
       supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', monthStart),
+      // Mensagens enviadas HOJE (pela data de envio, em horário de Brasília)
+      supabase
+        .from('messages_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'sent')
+        .gte('sent_at', todayStartISO)
+        .lte('sent_at', todayEndISO),
     ])
 
     const appts = todayRes.data || []
@@ -95,8 +124,9 @@ export default function DashboardPage() {
     setTodayAppts(appts)
     setUpcomingAppts(upcomingRes.data || [])
     setMetrics({
-      todayTotal: appts.length,
-      confirmacoes: appts.filter(a => (a as any).wa_confirmation_sent === true).length,
+      todayTotal: appts.length + cancelados.length,
+      whatsappEnviadosHoje: msgsHojeRes.count || 0,
+      ativosConfirmados: appts.filter(a => a.status === 'confirmed').length,
       cancelamentos: cancelados.length,
       todayRevenue: appts.filter(a => a.status === 'completed').reduce((s, a) => s + ((a.service as any)?.price || 0), 0),
       monthRevenue: month.reduce((s: number, a: any) => s + (a.service?.price || 0), 0),
@@ -116,7 +146,6 @@ export default function DashboardPage() {
   if (loading) return <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Carregando...</div>
 
   const allAppts = [...todayAppts, ...upcomingAppts]
-  const totalHoje = todayAppts.length + metrics!.cancelamentos
 
   return (
     <div>
@@ -127,10 +156,9 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Métricas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { icon: CalendarCheck, label: 'Agendamentos hoje', value: totalHoje, color: 'text-brand', bg: 'bg-brand-light' },
+          { icon: CalendarCheck, label: 'Agendamentos hoje', value: metrics!.todayTotal, color: 'text-brand', bg: 'bg-brand-light' },
           { icon: Users, label: 'Novos clientes', value: metrics!.newCustomersThisMonth, color: 'text-blue-600', bg: 'bg-blue-50' },
           { icon: Wallet, label: 'Faturamento hoje', value: `R$${metrics!.todayRevenue.toFixed(2)}`, color: 'text-amber-600', bg: 'bg-amber-50' },
           { icon: X, label: 'Cancelamentos hoje', value: metrics!.cancelamentos, color: 'text-red-500', bg: 'bg-red-50' },
@@ -146,7 +174,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Próximos agendamentos */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -195,7 +222,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Status das automações */}
         <div className="card">
           <div className="flex items-center gap-2 mb-4">
             <MessageCircle size={16} className="text-brand" />
@@ -203,9 +229,9 @@ export default function DashboardPage() {
           </div>
           <div className="space-y-4">
             {[
-              { label: 'WhatsApp enviados hoje', value: metrics!.confirmacoes, max: totalHoje || 1, color: 'bg-brand' },
-              { label: 'Ativos (confirmados)', value: todayAppts.filter(a => a.status === 'confirmed').length, max: totalHoje || 1, color: 'bg-blue-400' },
-              { label: 'Cancelamentos hoje', value: metrics!.cancelamentos, max: totalHoje || 1, color: 'bg-red-400' },
+              { label: 'WhatsApp enviados hoje', value: metrics!.whatsappEnviadosHoje, max: Math.max(metrics!.whatsappEnviadosHoje, 1), color: 'bg-brand' },
+              { label: 'Ativos (confirmados)', value: metrics!.ativosConfirmados, max: metrics!.todayTotal || 1, color: 'bg-blue-400' },
+              { label: 'Cancelamentos hoje', value: metrics!.cancelamentos, max: metrics!.todayTotal || 1, color: 'bg-red-400' },
             ].map(({ label, value, max, color }) => (
               <div key={label}>
                 <div className="flex justify-between text-xs mb-1.5">
