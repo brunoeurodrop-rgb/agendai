@@ -1,117 +1,194 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import { format, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { TrendingUp, Users, CalendarCheck, XCircle } from 'lucide-react'
+import { TrendingUp, Users, Calendar, X, Award, Info } from 'lucide-react'
+
+const TZ = 'America/Sao_Paulo'
+
+function getMonthRangeBrasiliaAsUTC(monthOffset = 0) {
+  const now = new Date()
+  const monthStr = now.toLocaleDateString('en-CA', { timeZone: TZ }).slice(0, 7)
+  const [year, month] = monthStr.split('-').map(Number)
+  const targetMonth = month + monthOffset
+  const start = new Date(year, targetMonth - 1, 1)
+  const end = new Date(year, targetMonth, 0, 23, 59, 59)
+  // Ajusta para considerar timezone -03:00
+  const startISO = new Date(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01T00:00:00-03:00`).toISOString()
+  const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate()
+  const endISO = new Date(`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59-03:00`).toISOString()
+  return { start: startISO, end: endISO, label: start }
+}
 
 export default function RelatoriosPage() {
-  const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [recebidoMes, setRecebidoMes] = useState(0)
+  const [agendadoMes, setAgendadoMes] = useState(0)
+  const [qtdConcluidos, setQtdConcluidos] = useState(0)
+  const [qtdCancelados, setQtdCancelados] = useState(0)
+  const [qtdTotal, setQtdTotal] = useState(0)
+  const [novoClientes, setNovoClientes] = useState(0)
+  const [topServicos, setTopServicos] = useState<{ nome: string; qtd: number; valor: number }[]>([])
+  const [topProfissionais, setTopProfissionais] = useState<{ nome: string; qtd: number }[]>([])
   const supabase = createClient()
 
   useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
-    const now = new Date()
-    const meses = [0,1,2,3,4].map(i => {
-      const d = subMonths(now, i)
-      return { label: format(d, 'MMM', { locale: ptBR }), start: startOfMonth(d).toISOString(), end: endOfMonth(d).toISOString() }
-    }).reverse()
+    const { start, end } = getMonthRangeBrasiliaAsUTC()
 
-    const results = await Promise.all(meses.map(m =>
-      supabase.from('appointments').select('status, service:services(price)').gte('starts_at', m.start).lte('starts_at', m.end)
-    ))
+    const { data: appts } = await supabase
+      .from('appointments')
+      .select('status, service:services(name, price), professional:professionals(name)')
+      .gte('starts_at', start)
+      .lte('starts_at', end)
 
-    const porMes = results.map((r, i) => {
-      const appts = r.data || []
-      return {
-        label: meses[i].label,
-        total: appts.length,
-        confirmados: appts.filter((a:any) => a.status === 'confirmed' || a.status === 'completed').length,
-        cancelados: appts.filter((a:any) => a.status === 'cancelled').length,
-        receita: appts.filter((a:any) => a.status !== 'cancelled').reduce((s: number, a: any) => s + (a.service?.price || 0), 0),
-      }
+    const all = appts || []
+    const completed = all.filter(a => a.status === 'completed')
+    const cancelled = all.filter(a => a.status === 'cancelled')
+    const notCancelled = all.filter(a => a.status !== 'cancelled')
+
+    setQtdTotal(all.length)
+    setQtdConcluidos(completed.length)
+    setQtdCancelados(cancelled.length)
+    setRecebidoMes(completed.reduce((s, a: any) => s + (a.service?.price || 0), 0))
+    setAgendadoMes(notCancelled.reduce((s, a: any) => s + (a.service?.price || 0), 0))
+
+    const { count } = await supabase
+      .from('customers')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', start)
+
+    setNovoClientes(count || 0)
+
+    // Top serviços (todos exceto cancelados)
+    const svcMap: Record<string, { qtd: number; valor: number }> = {}
+    notCancelled.forEach((a: any) => {
+      const nome = a.service?.name || 'Desconhecido'
+      if (!svcMap[nome]) svcMap[nome] = { qtd: 0, valor: 0 }
+      svcMap[nome].qtd++
+      svcMap[nome].valor += a.service?.price || 0
     })
+    setTopServicos(Object.entries(svcMap).map(([nome, v]) => ({ nome, ...v })).sort((a, b) => b.qtd - a.qtd).slice(0, 5))
 
-    const atual = porMes[porMes.length - 1]
-    const { count: totalClientes } = await supabase.from('customers').select('*', { count: 'exact', head: true })
-    setData({ porMes, atual, totalClientes })
+    // Top profissionais
+    const profMap: Record<string, number> = {}
+    notCancelled.forEach((a: any) => {
+      const nome = a.professional?.name || 'Desconhecido'
+      profMap[nome] = (profMap[nome] || 0) + 1
+    })
+    setTopProfissionais(Object.entries(profMap).map(([nome, qtd]) => ({ nome, qtd })).sort((a, b) => b.qtd - a.qtd).slice(0, 5))
+
     setLoading(false)
   }
 
-  if (loading) return <div className="text-center py-16 text-gray-400 text-sm">Carregando...</div>
-
-  const maxReceita = Math.max(...data.porMes.map((m: any) => m.receita), 1)
+  if (loading) return <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Carregando...</div>
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Relatórios</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Últimos 5 meses</p>
+        <p className="text-sm text-gray-500 mt-0.5">{format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })}</p>
       </div>
 
+      {/* Aviso de conceito — evita a confusão entre Relatório x Financeiro */}
+      <div className="flex items-start gap-2 mb-6 p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700">
+        <Info size={14} className="mt-0.5 shrink-0" />
+        <span>
+          <strong>Valor agendado</strong> soma todos os atendimentos do mês (já realizados + ainda confirmados), exceto cancelados.
+          <strong> Valor recebido</strong> soma apenas o que já foi efetivamente concluído e pago. Para o detalhamento por forma de pagamento e previsão de caixa, acesse a tela <strong>Financeiro</strong>.
+        </span>
+      </div>
+
+      {/* Cards principais */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { icon: CalendarCheck, label: 'Agendamentos', value: data.atual.total, color: 'text-brand', bg: 'bg-brand-light' },
-          { icon: TrendingUp, label: 'Receita do mês', value: `R$${data.atual.receita.toFixed(2)}`, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { icon: Users, label: 'Total clientes', value: data.totalClientes || 0, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { icon: XCircle, label: 'Cancelamentos', value: data.atual.cancelados, color: 'text-red-500', bg: 'bg-red-50' },
-        ].map(({ icon: Icon, label, value, color, bg }) => (
-          <div key={label} className="card">
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`${bg} p-1.5 rounded-lg`}><Icon size={15} className={color} /></div>
-              <span className="text-xs text-gray-500">{label}</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-900">{value}</div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-brand-light p-1.5 rounded-lg"><TrendingUp size={15} className="text-brand" /></div>
+            <span className="text-xs text-gray-500">Valor agendado no mês</span>
           </div>
-        ))}
-      </div>
-
-      <div className="card mb-6">
-        <h2 className="font-medium text-gray-900 text-sm mb-5">Receita por mês</h2>
-        <div className="flex items-end gap-4 h-40">
-          {data.porMes.map((m: any, i: number) => {
-            const pct = Math.round((m.receita / maxReceita) * 100)
-            const isLast = i === data.porMes.length - 1
-            return (
-              <div key={m.label} className="flex-1 flex flex-col items-center gap-2">
-                <div className="text-xs text-gray-400">R${m.receita.toFixed(0)}</div>
-                <div className="w-full flex items-end" style={{ height: '90px' }}>
-                  <div className="w-full rounded-t-lg" style={{ height: `${Math.max(pct, 4)}%`, background: isLast ? '#00C896' : '#d1fae5' }} />
-                </div>
-                <div className={`text-xs font-medium capitalize ${isLast ? 'text-brand' : 'text-gray-400'}`}>{m.label}</div>
-              </div>
-            )
-          })}
+          <div className="text-2xl font-bold text-gray-900">R${agendadoMes.toFixed(2)}</div>
+          <div className="text-xs text-gray-400 mt-1">Realizados + confirmados futuros</div>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-emerald-50 p-1.5 rounded-lg"><Award size={15} className="text-emerald-600" /></div>
+            <span className="text-xs text-gray-500">Valor já recebido</span>
+          </div>
+          <div className="text-2xl font-bold text-emerald-600">R${recebidoMes.toFixed(2)}</div>
+          <div className="text-xs text-gray-400 mt-1">{qtdConcluidos} concluído{qtdConcluidos !== 1 ? 's' : ''}</div>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-blue-50 p-1.5 rounded-lg"><Calendar size={15} className="text-blue-600" /></div>
+            <span className="text-xs text-gray-500">Total de agendamentos</span>
+          </div>
+          <div className="text-2xl font-bold text-gray-900">{qtdTotal}</div>
+          <div className="text-xs text-gray-400 mt-1">No mês atual</div>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-red-50 p-1.5 rounded-lg"><X size={15} className="text-red-500" /></div>
+            <span className="text-xs text-gray-500">Cancelamentos</span>
+          </div>
+          <div className="text-2xl font-bold text-red-500">{qtdCancelados}</div>
+          <div className="text-xs text-gray-400 mt-1">No mês atual</div>
         </div>
       </div>
 
-      <div className="card">
-        <h2 className="font-medium text-gray-900 text-sm mb-4">Detalhamento mensal</h2>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left py-2 text-xs text-gray-500 font-medium">Mês</th>
-              <th className="text-right py-2 text-xs text-gray-500 font-medium">Total</th>
-              <th className="text-right py-2 text-xs text-gray-500 font-medium">Confirmados</th>
-              <th className="text-right py-2 text-xs text-gray-500 font-medium">Cancelados</th>
-              <th className="text-right py-2 text-xs text-gray-500 font-medium">Receita</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.porMes.map((m: any, i: number) => (
-              <tr key={m.label} className={`border-b border-gray-50 ${i === data.porMes.length - 1 ? 'font-medium' : ''}`}>
-                <td className="py-3 capitalize text-gray-900">{m.label}</td>
-                <td className="py-3 text-right text-gray-600">{m.total}</td>
-                <td className="py-3 text-right text-brand">{m.confirmados}</td>
-                <td className="py-3 text-right text-red-400">{m.cancelados}</td>
-                <td className="py-3 text-right text-gray-900">R${m.receita.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top serviços */}
+        <div className="card">
+          <h2 className="font-medium text-gray-900 mb-4 text-sm">Serviços mais agendados</h2>
+          {topServicos.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Nenhum dado disponível ainda.</p>
+          ) : (
+            <div className="space-y-3">
+              {topServicos.map((s, i) => (
+                <div key={s.nome} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-500 text-xs flex items-center justify-center font-medium">{i + 1}</span>
+                    <span className="text-sm text-gray-700">{s.nome}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-medium text-gray-900">{s.qtd}x</span>
+                    <span className="text-xs text-gray-400 ml-2">R${s.valor.toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top profissionais */}
+        <div className="card">
+          <h2 className="font-medium text-gray-900 mb-4 text-sm">Profissionais com mais atendimentos</h2>
+          {topProfissionais.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Nenhum dado disponível ainda.</p>
+          ) : (
+            <div className="space-y-3">
+              {topProfissionais.map((p, i) => (
+                <div key={p.nome} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-gray-100 text-gray-500 text-xs flex items-center justify-center font-medium">{i + 1}</span>
+                    <span className="text-sm text-gray-700">{p.nome}</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">{p.qtd} atendimento{p.qtd !== 1 ? 's' : ''}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="card mt-6 flex items-center gap-3">
+        <Users size={18} className="text-brand" />
+        <div>
+          <div className="text-sm text-gray-500">Novos clientes este mês</div>
+          <div className="text-xl font-bold text-gray-900">{novoClientes}</div>
+        </div>
       </div>
     </div>
   )
