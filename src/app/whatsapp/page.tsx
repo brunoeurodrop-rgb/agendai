@@ -16,11 +16,11 @@ const MSG_TYPES: Record<string, { label: string; color: string; bg: string }> = 
 }
 
 function getMonthRange(date: Date) {
+  // Usa UTC puro para não perder registros nas bordas do mês
   const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const start = new Date(`${y}-${m}-01T00:00:00-03:00`).toISOString()
-  const lastDay = new Date(y, date.getMonth() + 1, 0).getDate()
-  const end = new Date(`${y}-${m}-${String(lastDay).padStart(2,'0')}T23:59:59-03:00`).toISOString()
+  const m = date.getMonth()
+  const start = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)).toISOString()
+  const end = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)).toISOString()
   return { start, end }
 }
 
