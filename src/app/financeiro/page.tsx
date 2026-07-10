@@ -142,8 +142,8 @@ export default function FinanceiroPage() {
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-medium text-gray-900 text-sm">Evolução dos últimos 6 meses</h2>
           <div className="flex items-center gap-1 text-xs text-gray-400">
-            <span class="w-3 h-3 rounded-sm bg-brand-light inline-block"></span> Agendado
-            <span class="w-3 h-3 rounded-sm bg-brand inline-block ml-2"></span> Recebido
+            <span className="w-3 h-3 rounded-sm bg-brand-light inline-block"></span> Agendado
+            <span className="w-3 h-3 rounded-sm bg-brand inline-block ml-2"></span> Recebido
           </div>
         </div>
 
