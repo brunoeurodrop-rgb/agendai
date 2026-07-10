@@ -31,7 +31,6 @@ interface MsgLog {
   phone: string
   sent_at: string | null
   created_at: string
-  customer?: { name: string }
 }
 
 interface Stats {
@@ -69,7 +68,7 @@ export default function WhatsAppPage() {
 
     const { data } = await supabase
       .from('messages_log')
-      .select('*, customer:customers(name)')
+      .select('*')
       .gte('created_at', start)
       .lte('created_at', end)
       .order('created_at', { ascending: false })
