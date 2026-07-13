@@ -1,4 +1,5 @@
 'use client'
+import PlanoGuard from '@/components/PlanoGuard'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth } from 'date-fns'
@@ -129,6 +130,7 @@ export default function FinanceiroPage() {
   const isCurrentMonth = format(selectedMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM')
 
   return (
+    <PlanoGuard planoMinimo="starter" mensagem="O módulo Financeiro está disponível a partir do plano Starter.">
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -279,5 +281,6 @@ export default function FinanceiroPage() {
         )}
       </div>
     </div>
+    </PlanoGuard>
   )
 }
