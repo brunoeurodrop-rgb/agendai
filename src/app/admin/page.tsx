@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase-client'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Shield, Users, Building2, X, Save, Loader2, CheckCircle, AlertCircle, Search, RefreshCw } from 'lucide-react'
@@ -45,14 +44,13 @@ export default function AdminPage() {
     limite_profissionais: '',
     limite_agendamentos: '',
   })
-  const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => { checkAdmin() }, [])
 
   async function checkAdmin() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || user.email !== ADMIN_EMAIL) {
+    const res = await fetch('/api/admin/check')
+    if (!res.ok) {
       toast.error('Acesso restrito ao administrador.')
       router.push('/dashboard')
       return
@@ -62,24 +60,10 @@ export default function AdminPage() {
 
   async function load() {
     setLoading(true)
-    const { data: orgsData } = await supabase
-      .from('organizations')
-      .select('*, profiles(email, name)')
-      .order('created_at', { ascending: false })
-
-    if (!orgsData) { setLoading(false); return }
-
-    // Buscar stats de cada org
-    const orgsWithStats = await Promise.all(orgsData.map(async org => {
-      const [c, a, m] = await Promise.all([
-        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('org_id', org.id),
-        supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('org_id', org.id),
-        supabase.from('messages_log').select('*', { count: 'exact', head: true }).eq('org_id', org.id),
-      ])
-      return { ...org, _stats: { clientes: c.count || 0, agendamentos: a.count || 0, msgs: m.count || 0 } }
-    }))
-
-    setOrgs(orgsWithStats)
+    const res = await fetch('/api/admin/orgs')
+    if (!res.ok) { setLoading(false); return }
+    const data = await res.json()
+    setOrgs(data.orgs || [])
     setLoading(false)
   }
 
@@ -97,16 +81,18 @@ export default function AdminPage() {
   async function saveEdit() {
     if (!editing) return
     setSaving(true)
-    const payload: any = { plan: form.plan }
+    const payload: any = { plan: form.plan, org_id: editing.id }
     if (form.trial_ends_at) payload.trial_ends_at = new Date(form.trial_ends_at + 'T23:59:59-03:00').toISOString()
-    if (form.limite_profissionais !== '') payload.limite_profissionais = parseInt(form.limite_profissionais)
-    else payload.limite_profissionais = null
-    if (form.limite_agendamentos !== '') payload.limite_agendamentos = parseInt(form.limite_agendamentos)
-    else payload.limite_agendamentos = null
+    payload.limite_profissionais = form.limite_profissionais !== '' ? parseInt(form.limite_profissionais) : null
+    payload.limite_agendamentos = form.limite_agendamentos !== '' ? parseInt(form.limite_agendamentos) : null
 
-    const { error } = await supabase.from('organizations').update(payload).eq('id', editing.id)
+    const res = await fetch('/api/admin/orgs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
     setSaving(false)
-    if (error) { toast.error('Erro ao salvar: ' + error.message); return }
+    if (!res.ok) { const d = await res.json(); toast.error('Erro: ' + d.error); return }
     toast.success('Empresa atualizada!')
     setEditModal(false)
     load()
