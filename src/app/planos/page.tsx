@@ -14,10 +14,9 @@ const PLANOS = [
     priceId: 'price_1TXq9q3NsfHF8KhTMJDkvNWw',
     features: [
       '1 profissional',
-      'Clientes ilimitados',
-      'Serviços ilimitados',
+      'Clientes e serviços ilimitados',
       'Até 50 agendamentos/mês',
-      'Agenda online',
+      'Agenda online completa',
       'WhatsApp automático',
       'Confirmação, lembrete, cancelamento e reagendamento automáticos',
       'Dashboard e relatórios básicos',
@@ -39,17 +38,15 @@ const PLANOS = [
       'Relatórios avançados + Export PDF',
       'Dashboard financeiro completo',
       'Estatísticas avançadas de WhatsApp',
-      'Campanhas de WhatsApp (aniversário, clientes inativos)',
-      'Importação de clientes via Excel',
       'Suporte prioritário',
     ],
   },
 ]
 
 const ADICIONAIS = [
-  { nome: 'Profissional extra', preco: 'R$14,90/mês', desc: 'Adicione mais profissionais sem trocar de plano' },
-  { nome: 'Pacote +200 agendamentos', preco: 'R$19,90/mês', desc: 'Para quem está crescendo rápido' },
-  { nome: 'Configuração Assistida', preco: 'R$79,90 único', desc: 'Conectamos seu WhatsApp por você' },
+  { nome: 'Profissional extra', preco: 'R$14,90/mês', desc: 'Adicione mais profissionais sem trocar de plano', link: null },
+  { nome: 'Pacote +200 agendamentos', preco: 'R$19,90/mês', desc: 'Para quem está crescendo rápido', link: null },
+  { nome: 'Configuração Assistida', preco: 'R$79,90 único', desc: 'Nossa equipe conecta seu WhatsApp por você', link: 'https://buy.stripe.com/test_28E7sEc6y9w85KkbqYcAo00' },
 ]
 
 export default function PlanosPage() {
@@ -60,32 +57,17 @@ export default function PlanosPage() {
     setLoading(planId)
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        toast.error('Faça login novamente para assinar.')
-        setLoading(null)
-        return
-      }
+      if (!session) { toast.error('Faça login novamente para assinar.'); setLoading(null); return }
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ priceId }),
       })
       const data = await res.json()
-      if (!res.ok) {
-        toast.error('Erro: ' + (data.error || 'Tente novamente.'))
-        setLoading(null)
-        return
-      }
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        toast.error('Erro ao iniciar checkout.')
-        setLoading(null)
-      }
-    } catch {
-      toast.error('Erro de conexão. Verifique sua internet.')
-      setLoading(null)
-    }
+      if (!res.ok) { toast.error('Erro: ' + (data.error || 'Tente novamente.')); setLoading(null); return }
+      if (data.url) window.location.href = data.url
+      else { toast.error('Erro ao iniciar checkout.'); setLoading(null) }
+    } catch { toast.error('Erro de conexão.'); setLoading(null) }
   }
 
   return (
@@ -116,13 +98,10 @@ export default function PlanosPage() {
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => assinar(p.priceId, p.id)}
-              disabled={!!loading}
+            <button onClick={() => assinar(p.priceId, p.id)} disabled={!!loading}
               className={`w-full py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                 p.featured ? 'bg-brand text-white hover:bg-brand-dark disabled:opacity-60' : 'border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60'
-              }`}
-            >
+              }`}>
               {loading === p.id && <Loader2 size={14} className="animate-spin" />}
               {loading === p.id ? 'Aguarde...' : `Assinar ${p.nome}`}
             </button>
@@ -130,7 +109,7 @@ export default function PlanosPage() {
         ))}
       </div>
 
-      {/* Serviços adicionais */}
+      {/* Recursos adicionais */}
       <div className="max-w-2xl mx-auto mt-8">
         <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
           <Sparkles size={15} className="text-brand" /> Recursos adicionais
@@ -140,33 +119,36 @@ export default function PlanosPage() {
             <div key={a.nome} className="rounded-xl border border-gray-200 bg-white p-4">
               <div className="font-medium text-sm text-gray-900 mb-1">{a.nome}</div>
               <div className="text-brand font-bold text-sm mb-1">{a.preco}</div>
-              <div className="text-xs text-gray-400">{a.desc}</div>
+              <div className="text-xs text-gray-400 mb-3">{a.desc}</div>
+              {a.link ? (
+                <a href={a.link} target="_blank" rel="noopener noreferrer"
+                  className="text-xs bg-brand text-white px-3 py-1.5 rounded-lg font-medium hover:bg-brand-dark transition-colors inline-block">
+                  Contratar
+                </a>
+              ) : (
+                <a href="https://wa.me/5521990760217?text=Olá%2C+tenho+interesse+em+um+recurso+adicional+do+AgendaAI"
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-medium hover:bg-gray-50 transition-colors inline-block">
+                  Falar com suporte
+                </a>
+              )}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Card Enterprise sob consulta */}
       <div className="max-w-2xl mx-auto mt-4">
         <div className="rounded-2xl p-6 border border-dashed border-gray-300 bg-gray-50 text-center">
           <div className="font-bold text-gray-700 mb-1">Precisa de mais?</div>
-          <p className="text-sm text-gray-500 mb-4">
-            Para redes com múltiplas unidades ou volume alto de atendimentos, temos uma solução personalizada.
-          </p>
-          <a
-            href="https://wa.me/5521990760217?text=Olá%2C+tenho+interesse+em+um+plano+personalizado+do+AgendaAI"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-6 py-2.5 rounded-xl hover:bg-gray-700 transition-colors"
-          >
+          <p className="text-sm text-gray-500 mb-4">Para redes com múltiplas unidades ou volume alto de atendimentos, temos uma solução personalizada.</p>
+          <a href="https://wa.me/5521990760217?text=Olá%2C+tenho+interesse+em+um+plano+personalizado+do+AgendaAI"
+            target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-6 py-2.5 rounded-xl hover:bg-gray-700 transition-colors">
             Falar com consultor
           </a>
         </div>
       </div>
-
-      <p className="mt-6 text-center text-xs text-gray-400">
-        Todos os planos incluem atualizações gratuitas e suporte via WhatsApp.
-      </p>
+      <p className="mt-6 text-center text-xs text-gray-400">Todos os planos incluem atualizações gratuitas e suporte via WhatsApp.</p>
     </div>
   )
 }
