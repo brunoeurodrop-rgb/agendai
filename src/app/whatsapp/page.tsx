@@ -113,6 +113,7 @@ export default function WhatsAppPage() {
   const maxBar = Math.max(...historico.map(h => h.enviadas), 1)
 
   return (
+    <PlanoGuard planoMinimo="pro" mensagem="As estatísticas avançadas de WhatsApp estão disponíveis apenas no plano Pro.">
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">WhatsApp</h1>
@@ -265,5 +266,6 @@ export default function WhatsAppPage() {
         </div>
       </div>
     </div>
+    </PlanoGuard>
   )
 }

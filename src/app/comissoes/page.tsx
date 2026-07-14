@@ -1,4 +1,5 @@
 'use client'
+import PlanoGuard from '@/components/PlanoGuard'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { format } from 'date-fns'
@@ -230,6 +231,7 @@ export default function ComissoesPage() {
   const svcName = (id: string | null) => id ? (services.find(s => s.id === id)?.name || id) : 'Todos os serviços'
 
   return (
+    <PlanoGuard planoMinimo="pro" mensagem="O módulo de Comissões está disponível apenas no plano Pro.">
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -459,5 +461,6 @@ export default function ComissoesPage() {
         </div>
       )}
     </div>
+    </PlanoGuard>
   )
 }
