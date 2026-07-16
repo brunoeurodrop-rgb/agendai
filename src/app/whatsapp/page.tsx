@@ -1,4 +1,5 @@
 'use client'
+import PlanoGuard from '@/components/PlanoGuard'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { format, subMonths } from 'date-fns'
@@ -16,7 +17,6 @@ const MSG_TYPES: Record<string, { label: string; color: string; bg: string }> = 
 }
 
 function getMonthRange(date: Date) {
-  // Usa UTC puro para não perder registros nas bordas do mês
   const y = date.getFullYear()
   const m = date.getMonth()
   const start = new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)).toISOString()
@@ -45,7 +45,7 @@ interface MonthBar {
   enviadas: number
 }
 
-export default function WhatsAppPage() {
+function WhatsAppContent() {
   const [selectedMonth, setSelectedMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<Stats>({ total: 0, enviadas: 0, falhas: 0, porTipo: {} })
@@ -113,7 +113,6 @@ export default function WhatsAppPage() {
   const maxBar = Math.max(...historico.map(h => h.enviadas), 1)
 
   return (
-    <PlanoGuard planoMinimo="pro" mensagem="As estatísticas avançadas de WhatsApp estão disponíveis apenas no plano Pro.">
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">WhatsApp</h1>
@@ -130,7 +129,7 @@ export default function WhatsAppPage() {
             <span className="text-sm font-medium text-gray-900 min-w-[130px] text-center capitalize">
               {format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })}
             </span>
-            <button onClick={() => setSelectedMonth(m => { const next = subMonths(m, -1); return isCurrentMonth ? m : next })}
+            <button onClick={() => !isCurrentMonth && setSelectedMonth(m => subMonths(m, -1))}
               disabled={isCurrentMonth}
               className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 disabled:opacity-30">
               <ChevronRight size={15} />
@@ -143,7 +142,7 @@ export default function WhatsAppPage() {
             const isSel = h.label === format(selectedMonth, 'MMM', { locale: ptBR }).charAt(0).toUpperCase() + format(selectedMonth, 'MMM', { locale: ptBR }).slice(1)
             return (
               <button key={i} onClick={() => setSelectedMonth(subMonths(new Date(), 5 - i))}
-                className="flex-1 flex flex-col items-center gap-1.5 group">
+                className="flex-1 flex flex-col items-center gap-1.5">
                 <span className={`text-xs font-medium ${isSel ? 'text-brand' : 'text-gray-400'}`}>{h.enviadas}</span>
                 <div className="w-full rounded-t-lg transition-all"
                   style={{ height: `${Math.max(pct, 4)}%`, background: isSel ? '#00C896' : '#E8F9F4', minHeight: '4px' }} />
@@ -213,9 +212,7 @@ export default function WhatsAppPage() {
                 return (
                   <div key={key}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
-                      </div>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span className="text-emerald-600 font-medium">{data.enviadas} ✓</span>
                         {data.falhas > 0 && <span className="text-red-500 font-medium">{data.falhas} ✗</span>}
@@ -266,6 +263,13 @@ export default function WhatsAppPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function WhatsAppPage() {
+  return (
+    <PlanoGuard planoMinimo="pro" mensagem="As estatísticas avançadas de WhatsApp estão disponíveis apenas no plano Pro.">
+      <WhatsAppContent />
     </PlanoGuard>
   )
 }

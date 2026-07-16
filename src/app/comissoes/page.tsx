@@ -20,7 +20,7 @@ type CommissionResult = {
 const PLANOS_COM_PDF = ['pro', 'enterprise']
 const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
 
-export default function ComissoesPage() {
+function ComissoesContent() {
   const [tab, setTab] = useState<'config' | 'relatorio'>('relatorio')
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -67,7 +67,6 @@ export default function ComissoesPage() {
 
   function getDateRange() {
     const [year, month] = mes.split('-').map(Number)
-    const base = new Date(year, month - 1, 1)
     if (periodo === 'mensal') {
       return {
         start: new Date(year, month - 1, 1),
@@ -231,7 +230,6 @@ export default function ComissoesPage() {
   const svcName = (id: string | null) => id ? (services.find(s => s.id === id)?.name || id) : 'Todos os serviços'
 
   return (
-    <PlanoGuard planoMinimo="pro" mensagem="O módulo de Comissões está disponível apenas no plano Pro.">
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -285,16 +283,12 @@ export default function ComissoesPage() {
                 {loading ? 'Calculando...' : 'Calcular comissões'}
               </button>
               {results.length > 0 && (
-                <div className="relative">
-                  <button
-                    onClick={exportPDF}
-                    className={`flex items-center gap-2 ${podePDF ? 'btn-secondary' : 'btn-secondary opacity-60'}`}
-                  >
-                    {!podePDF && <Lock size={13} />}
-                    <FileText size={15} />
-                    {podePDF ? 'Exportar PDF' : 'PDF — Plano Pro'}
-                  </button>
-                </div>
+                <button onClick={exportPDF}
+                  className={`flex items-center gap-2 ${podePDF ? 'btn-secondary' : 'btn-secondary opacity-60'}`}>
+                  {!podePDF && <Lock size={13} />}
+                  <FileText size={15} />
+                  {podePDF ? 'Exportar PDF' : 'PDF — Plano Pro'}
+                </button>
               )}
             </div>
             {!podePDF && userLoaded && (
@@ -461,6 +455,13 @@ export default function ComissoesPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function ComissoesPage() {
+  return (
+    <PlanoGuard planoMinimo="pro" mensagem="O módulo de Comissões está disponível apenas no plano Pro.">
+      <ComissoesContent />
     </PlanoGuard>
   )
 }
