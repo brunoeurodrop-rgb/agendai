@@ -265,7 +265,7 @@ export default function DashboardPage() {
       .lte('starts_at', g30end)
       .not('status', 'eq', 'cancelled')
 
-    const g30: { dia: string; valor: number }[] = []
+    const g30: { dia: string; valor: number; agendamentos: number }[] = []
     for (let i = 29; i >= 0; i--) {
       const d = subDays(new Date(), i)
       const dStr = d.toLocaleDateString('en-CA', { timeZone: TZ })
