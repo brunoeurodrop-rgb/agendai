@@ -275,7 +275,7 @@ export default function DashboardPage() {
       g30.push({
         dia: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
         valor: dayData.filter((a: any) => a.status === 'completed').reduce((s: number, a: any) => s + ((a.service as any)?.price || 0), 0),
-        agendamentos: dayData.length,
+        agendamentos: dayData.length as number,
       })
     }
     setGrafico30(g30)
