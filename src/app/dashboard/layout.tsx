@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase-client'
 import {
   LayoutDashboard, Calendar, Plus, MessageCircle, Users,
   Scissors, UserCheck, Wallet, BarChart2, Bell, Star,
-  LogOut, Menu, X, ChevronLeft, Percent, HelpCircle, Settings, Shield
+  LogOut, Menu, X, ChevronLeft, Percent, HelpCircle, Settings, Shield, Target
 } from 'lucide-react'
 import TrialBanner from '@/components/TrialBanner'
 
@@ -27,6 +27,7 @@ const nav = [
 const groups = ['Principal', 'Cadastros', 'Gestão']
 const ROOT_PAGES = ['/dashboard']
 const SUPORTE_URL = 'https://wa.me/5521990760217?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+AgendaAI'
+const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -49,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { data: profile } = await supabase.from('profiles').select('name, email').eq('id', user.id).single()
     if (profile) {
       setUserName(profile.name || profile.email || '')
-      setIsAdmin(profile.email === 'bkpimenta81@gmail.com')
+      setIsAdmin(user.email === ADMIN_EMAIL)
     }
   }
 
@@ -96,7 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-0.5 transition-all ${
                 pathname === '/admin' ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-500 hover:bg-amber-50 hover:text-amber-700'
               }`}>
-              <Shield size={16} />Painel Admin
+              <Shield size={16} /> Painel Admin
             </Link>
           </div>
         )}
@@ -107,6 +108,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             pathname === '/configuracoes' ? 'bg-brand-light text-brand-dark font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
           }`}>
           <Settings size={16} /> Configurações
+        </Link>
+        <Link href="/configuracoes/metas" onClick={() => setOpen(false)}
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+            pathname === '/configuracoes/metas' ? 'bg-brand-light text-brand-dark font-medium' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+          }`}>
+          <Target size={16} /> Metas
         </Link>
         <Link href="/planos" onClick={() => setOpen(false)}
           className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
