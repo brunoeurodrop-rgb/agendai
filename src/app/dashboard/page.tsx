@@ -81,7 +81,7 @@ export default function DashboardPage() {
   const [upcomingAppts, setUpcomingAppts] = useState<Appointment[]>([])
   const [todayAppts, setTodayAppts] = useState<Appointment[]>([])
   const [graficoTipo, setGraficoTipo] = useState<'faturamento' | 'agendamentos'>('faturamento')
-  const [grafico30, setGrafico30] = useState<{ dia: string; valor: number }[]>([])
+  const [grafico30, setGrafico30] = useState<{ dia: string; valor: number; agendamentos?: number }[]>([])
 
   // Métricas hoje
   const [todayRevenue, setTodayRevenue] = useState(0)
@@ -250,17 +250,32 @@ export default function DashboardPage() {
       setMetaReceita(null)
     }
 
-    // Gráfico 30 dias
+    // Gráfico 30 dias — busca separada para cobrir mês anterior também
+    const g30start = new Date(Date.UTC(
+      new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - 29
+    )).toISOString()
+    const g30end = new Date(Date.UTC(
+      new Date().getFullYear(), new Date().getMonth(), new Date().getDate(), 23, 59, 59
+    )).toISOString()
+
+    const { data: g30data } = await supabase
+      .from('appointments')
+      .select('starts_at, status, service:services(price)')
+      .gte('starts_at', g30start)
+      .lte('starts_at', g30end)
+      .not('status', 'eq', 'cancelled')
+
     const g30: { dia: string; valor: number }[] = []
     for (let i = 29; i >= 0; i--) {
       const d = subDays(new Date(), i)
       const dStr = d.toLocaleDateString('en-CA', { timeZone: TZ })
       const dStart = new Date(`${dStr}T00:00:00-03:00`).toISOString()
-      const dEnd = new Date(`${dStr}T23:59:59-03:00`).toISOString()
-      const dayData = month.filter((a: any) => a.starts_at >= dStart && a.starts_at <= dEnd)
+      const dEnd = new Date(`${dStr}T23:59:59.999-03:00`).toISOString()
+      const dayData = (g30data || []).filter((a: any) => a.starts_at >= dStart && a.starts_at <= dEnd)
       g30.push({
         dia: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        valor: dayData.filter((a: any) => a.status === 'completed').reduce((s: number, a: any) => s + (a.service?.price || 0), 0),
+        valor: dayData.filter((a: any) => a.status === 'completed').reduce((s: number, a: any) => s + ((a.service as any)?.price || 0), 0),
+        agendamentos: dayData.length,
       })
     }
     setGrafico30(g30)
@@ -456,14 +471,14 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-end gap-1 h-20">
           {grafico30.map((d, i) => {
-            const val = graficoTipo === 'faturamento' ? d.valor : (d.valor > 0 ? 1 : 0)
-            const max = graficoTipo === 'faturamento' ? maxGrafico : 1
-            const pct = Math.max(Math.round((val / max) * 100), val > 0 ? 5 : 0)
+            const val = graficoTipo === 'faturamento' ? d.valor : (d.agendamentos || 0)
+            const maxVal = graficoTipo === 'faturamento' ? maxGrafico : Math.max(...grafico30.map(g => g.agendamentos || 0), 1)
+            const pct = Math.max(Math.round((val / maxVal) * 100), val > 0 ? 5 : 0)
             const isToday = i === 29
             return (
               <div key={i} className="flex-1 flex flex-col items-center group relative">
                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                  {d.dia}{graficoTipo === 'faturamento' ? ` · R$${d.valor.toFixed(0)}` : ''}
+                  {d.dia}{graficoTipo === 'faturamento' ? ` · R$${d.valor.toFixed(0)}` : ` · ${d.agendamentos || 0} agend.`}
                 </div>
                 <div className="w-full rounded-t-sm transition-all"
                   style={{ height: `${pct}%`, background: isToday ? '#00C896' : '#E8F9F4', minHeight: val > 0 ? '3px' : '0' }} />
