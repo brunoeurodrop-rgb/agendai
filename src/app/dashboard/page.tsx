@@ -81,7 +81,7 @@ export default function DashboardPage() {
   const [upcomingAppts, setUpcomingAppts] = useState<Appointment[]>([])
   const [todayAppts, setTodayAppts] = useState<Appointment[]>([])
   const [graficoTipo, setGraficoTipo] = useState<'faturamento' | 'agendamentos'>('faturamento')
-  const [grafico30, setGrafico30] = useState<{ dia: string; valor: number; agendamentos: number }[]>([])
+  const [grafico30, setGrafico30] = useState<{ dia: string; valor: number; agendamentos?: number }[]>([])
 
   // Métricas hoje
   const [todayRevenue, setTodayRevenue] = useState(0)
@@ -265,7 +265,7 @@ export default function DashboardPage() {
       .lte('starts_at', g30end)
       .not('status', 'eq', 'cancelled')
 
-    const g30: { dia: string; valor: number; agendamentos: number }[] = []
+    const g30: { dia: string; valor: number }[] = []
     for (let i = 29; i >= 0; i--) {
       const d = subDays(new Date(), i)
       const dStr = d.toLocaleDateString('en-CA', { timeZone: TZ })
@@ -275,7 +275,7 @@ export default function DashboardPage() {
       g30.push({
         dia: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
         valor: dayData.filter((a: any) => a.status === 'completed').reduce((s: number, a: any) => s + ((a.service as any)?.price || 0), 0),
-        agendamentos: dayData.length as number,
+        agendamentos: dayData.length,
       })
     }
     setGrafico30(g30)
