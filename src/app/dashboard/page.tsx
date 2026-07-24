@@ -469,7 +469,7 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
-        <div className="flex items-end gap-1 h-20">
+        <div className="flex items-end gap-1 h-32">
           {grafico30.map((d, i) => {
             const val = graficoTipo === 'faturamento' ? d.valor : (d.agendamentos || 0)
             const maxVal = graficoTipo === 'faturamento' ? maxGrafico : Math.max(...grafico30.map(g => g.agendamentos || 0), 1)
@@ -481,7 +481,7 @@ export default function DashboardPage() {
                   {d.dia}{graficoTipo === 'faturamento' ? ` · R$${d.valor.toFixed(0)}` : ` · ${d.agendamentos || 0} agend.`}
                 </div>
                 <div className="w-full rounded-t-sm transition-all"
-                  style={{ height: `${pct}%`, background: isToday ? '#00C896' : '#E8F9F4', minHeight: val > 0 ? '3px' : '0' }} />
+                  style={{ height: `${Math.max(pct, val > 0 ? 8 : 0)}%`, background: isToday ? '#00C896' : '#C8F0E4', minHeight: val > 0 ? '8px' : '0' }} />
               </div>
             )
           })}
