@@ -81,7 +81,7 @@ export default function DashboardPage() {
   const [upcomingAppts, setUpcomingAppts] = useState<Appointment[]>([])
   const [todayAppts, setTodayAppts] = useState<Appointment[]>([])
   const [graficoTipo, setGraficoTipo] = useState<'faturamento' | 'agendamentos'>('faturamento')
-  const [grafico30, setGrafico30] = useState<{ dia: string; valor: number; agendamentos?: number }[]>([])
+  const [grafico30, setGrafico30] = useState<{ dia: string; valor: number; agendamentos: number }[]>([])
 
   // Métricas hoje
   const [todayRevenue, setTodayRevenue] = useState(0)
