@@ -3,17 +3,21 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { Plus, X, Pencil, Phone, Mail, Lock } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { getLimite } from '@/lib/plano-limites'
 import type { Professional } from '@/types'
+
+const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
+const LIMITES: Record<string, number> = { trial: 1, starter: 1, pro: 5, enterprise: 99 }
 
 export default function ProfissionaisPage() {
   const [list, setList] = useState<Professional[]>([])
   const [orgId, setOrgId] = useState<string | null>(null)
   const [plano, setPlano] = useState<string>('trial')
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [limiteExtra, setLimiteExtra] = useState<number>(0)
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Professional | null>(null)
   const [form, setForm] = useState({ name: '', specialty: '', phone: '', email: '', bio: '', active: true })
+  const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
   useEffect(() => { init() }, [])
@@ -25,8 +29,8 @@ export default function ProfissionaisPage() {
     const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     if (!profile) return
     setOrgId(profile.org_id)
-    const { data: org } = await supabase.from('organizations').select('plan').eq('id', profile.org_id).single()
-    if (org) setPlano(org.plan)
+    const { data: org } = await supabase.from('organizations').select('plan, limite_profissionais').eq('id', profile.org_id).single()
+    if (org) { setPlano(org.plan); setLimiteExtra(org.limite_profissionais || 0) }
     load()
   }
 
@@ -35,11 +39,16 @@ export default function ProfissionaisPage() {
     setList(data || [])
   }
 
+  function getLimite() {
+    if (userEmail === ADMIN_EMAIL) return 99
+    return (LIMITES[plano] || 1) + limiteExtra
+  }
+
   function openNew() {
-    const limite = getLimite(plano, 'profissionais', userEmail)
+    const limite = getLimite()
     const ativos = list.filter(p => p.active).length
     if (ativos >= limite) {
-      toast.error(`Seu plano ${plano === 'trial' ? 'gratuito' : plano} permite apenas ${limite} profissional${limite > 1 ? 'is' : ''}. Faça upgrade para adicionar mais.`)
+      toast.error(`Seu plano permite apenas ${limite} profissional${limite > 1 ? 'is' : ''}. Faça upgrade para adicionar mais.`)
       return
     }
     setEditing(null)
@@ -54,19 +63,30 @@ export default function ProfissionaisPage() {
   }
 
   async function save() {
-    if (!form.name) { toast.error('Nome obrigatório'); return }
+    if (!form.name.trim()) { toast.error('Nome obrigatório'); return }
     if (!orgId) return
-    const payload = { org_id: orgId, name: form.name, specialty: form.specialty || null, phone: form.phone || null, email: form.email || null, bio: form.bio || null, active: form.active }
+    setSaving(true)
+    const payload = {
+      org_id: orgId,
+      name: form.name.trim(),
+      specialty: form.specialty.trim() || null,
+      phone: form.phone.trim() || null,
+      email: form.email.trim() || null,
+      bio: form.bio.trim() || null,
+      active: form.active,
+    }
     if (editing) {
       const { error } = await supabase.from('professionals').update(payload).eq('id', editing.id)
-      if (error) { toast.error('Erro ao atualizar'); return }
+      if (error) { toast.error('Erro ao atualizar: ' + error.message); setSaving(false); return }
       toast.success('Profissional atualizado!')
     } else {
       const { error } = await supabase.from('professionals').insert(payload)
-      if (error) { toast.error('Erro ao salvar'); return }
+      if (error) { toast.error('Erro ao salvar: ' + error.message); setSaving(false); return }
       toast.success('Profissional cadastrado!')
     }
-    setModal(false); load()
+    setSaving(false)
+    setModal(false)
+    load()
   }
 
   async function toggle(p: Professional) {
@@ -74,7 +94,7 @@ export default function ProfissionaisPage() {
     load()
   }
 
-  const limite = getLimite(plano, 'profissionais', userEmail)
+  const limite = getLimite()
   const ativos = list.filter(p => p.active).length
   const atingiuLimite = ativos >= limite
 
@@ -83,7 +103,7 @@ export default function ProfissionaisPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Profissionais</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{ativos} de {limite >= 99 ? '∞' : limite} {limite === 1 ? 'profissional' : 'profissionais'} ativos</p>
+          <p className="text-sm text-gray-500 mt-0.5">{ativos} de {limite >= 99 ? '∞' : limite} {limite === 1 ? 'profissional' : 'profissionais'} ativo{ativos !== 1 ? 's' : ''}</p>
         </div>
         <button className={`btn-primary flex items-center gap-2 ${atingiuLimite ? 'opacity-60' : ''}`} onClick={openNew}>
           {atingiuLimite ? <Lock size={16} /> : <Plus size={16} />}
@@ -93,7 +113,7 @@ export default function ProfissionaisPage() {
 
       {atingiuLimite && (
         <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 flex items-center justify-between gap-4">
-          <span>Seu plano <strong>{plano === 'trial' ? 'gratuito' : plano}</strong> permite apenas {limite} profissional. Faça upgrade para adicionar mais.</span>
+          <span>Seu plano permite até {limite} profissional{limite > 1 ? 'is' : ''}. Faça upgrade para adicionar mais.</span>
           <a href="/planos" className="btn-primary text-xs px-3 py-1.5 shrink-0">Ver planos</a>
         </div>
       )}
@@ -135,7 +155,7 @@ export default function ProfissionaisPage() {
             </div>
             <div className="flex gap-3 mt-6">
               <button className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancelar</button>
-              <button className="btn-primary flex-1" onClick={save}>{editing ? 'Salvar' : 'Cadastrar'}</button>
+              <button className="btn-primary flex-1" onClick={save} disabled={saving}>{saving ? 'Salvando...' : editing ? 'Salvar' : 'Cadastrar'}</button>
             </div>
           </div>
         </div>

@@ -81,7 +81,7 @@ export default function DashboardPage() {
   const [upcomingAppts, setUpcomingAppts] = useState<Appointment[]>([])
   const [todayAppts, setTodayAppts] = useState<Appointment[]>([])
   const [graficoTipo, setGraficoTipo] = useState<'faturamento' | 'agendamentos'>('faturamento')
-  const [grafico30, setGrafico30] = useState<{ dia: string; valor: number; agendamentos: number }[]>([])
+  const [grafico30, setGrafico30] = useState<{ dia: string; valor: number; agendamentos?: number }[]>([])
 
   // Métricas hoje
   const [todayRevenue, setTodayRevenue] = useState(0)
@@ -177,12 +177,13 @@ export default function DashboardPage() {
 
     // Hoje
     const today = todayRes.data || []
-    const concluidos = today.filter(a => a.status === 'completed')
-    const confirmados = today.filter(a => a.status === 'confirmed')
-    const todayRev = concluidos.reduce((s, a: any) => s + (a.service?.price || 0), 0)
+    const concluidos = today.filter((a: any) => a.status === 'completed')
+    const confirmados = today.filter((a: any) => a.status === 'confirmed')
+    const todayRev = concluidos.reduce((s: number, a: any) => s + (a.service?.price || 0), 0)
     setTodayAppts(today)
     setTodayRevenue(todayRev)
-    setTodayTotal(today.filter(a => a.status !== 'cancelled').length)
+    // Total = agendamentos ativos (confirmados + pendentes, excluindo cancelados e concluídos)
+    setTodayTotal(today.filter((a: any) => ['confirmed', 'pending'].includes(a.status)).length)
     setTodayConcluidos(concluidos.length)
     setTodayConfirmados(confirmados.length)
 
@@ -287,7 +288,7 @@ export default function DashboardPage() {
       if (pctRev > 0) ins.push(`Seu faturamento cresceu ${pctRev.toFixed(1)}% em relação ao mês anterior.`)
       else ins.push(`Seu faturamento caiu ${Math.abs(pctRev).toFixed(1)}% em relação ao mês anterior.`)
     }
-    if (topSvc) ins.push(`"${topSvc[0]}" é o serviço mais agendado este mês (${topSvc[1]} atendimentos).`)
+    if (topSvc) ins.push(`"${topSvc[0]}" é o serviço mais agendado este mês (${topSvc[1]} atendimento${topSvc[1] !== 1 ? 's' : ''}).`)
     if (waConf > 0 && ticketMedio > 0) {
       const receitaProtegida = waConf * (mRev / (monthCompleted.length || 1))
       ins.push(`Você preservou aproximadamente R$${receitaProtegida.toFixed(2)} com confirmações automáticas.`)

@@ -79,7 +79,12 @@ export default function AgendaPage() {
       }
     }
     await supabase.from('appointments').update({ status }).eq('id', id)
-    toast.success(status === 'cancelled' ? 'Agendamento cancelado' : 'Status atualizado')
+    if (data?.whatsapp_sent) {
+  toast.success(status === 'cancelled' ? 'Agendamento cancelado. Cliente notificado via WhatsApp.' : 'Status atualizado.')
+} else {
+  toast.success(status === 'cancelled' ? 'Agendamento cancelado.' : 'Status atualizado.')
+  if (status === 'cancelled') toast.error('Não foi possível enviar o WhatsApp. Verifique a conexão em Configurações.')
+}
     loadMonth()
     if (status === 'cancelled') {
       fetch('/api/whatsapp/send', {
@@ -123,7 +128,12 @@ export default function AgendaPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ appointmentId: reagAppt.id, type: 'rescheduling' }),
     })
-    toast.success('Reagendado com sucesso! WhatsApp enviado.')
+    if (data?.whatsapp_sent) {
+  toast.success('Reagendado com sucesso! Cliente notificado via WhatsApp.')
+} else {
+  toast.success('Reagendado com sucesso!')
+  toast.error('Não foi possível enviar o WhatsApp. Verifique a conexão em Configurações.')
+}
     setReagModal(false)
     setReagSaving(false)
     loadMonth()

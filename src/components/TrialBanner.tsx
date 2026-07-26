@@ -1,149 +1,120 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { AlertTriangle, X, CreditCard, Clock, CheckCircle, Shield } from 'lucide-react'
+import { AlertCircle, X } from 'lucide-react'
 import Link from 'next/link'
-import { differenceInDays } from 'date-fns'
 
 const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
 
-type BannerInfo = {
-  tipo: 'trial' | 'expirando' | 'vencido' | 'ativo' | 'admin' | null
-  dias?: number
-  plano?: string
-}
+type BannerState = 'admin' | 'ativo' | 'trial' | 'expirando' | 'vencido' | null
 
 export default function TrialBanner() {
-  const [info, setInfo] = useState<BannerInfo>({ tipo: null })
-  const [fechado, setFechado] = useState(false)
+  const [state, setState] = useState<BannerState>(null)
+  const [diasRestantes, setDiasRestantes] = useState<number | null>(null)
+  const [dismissed, setDismissed] = useState(false)
   const supabase = createClient()
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { check() }, [])
 
-  async function load() {
+  async function check() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Admin tem banner próprio, sem falar de plano
-    if (user.email === ADMIN_EMAIL) {
-      setInfo({ tipo: 'admin' })
-      return
-    }
+    if (user.email === ADMIN_EMAIL) { setState('admin'); return }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', user.id)
-      .single()
+    const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
     if (!profile) return
 
     const { data: org } = await supabase
       .from('organizations')
-      .select('plan, trial_ends_at')
+      .select('plan, trial_ends_at, stripe_subscription_id, stripe_current_period_end')
       .eq('id', profile.org_id)
       .single()
+
     if (!org) return
 
-    if (org.plan === 'starter' || org.plan === 'pro' || org.plan === 'enterprise') {
-      setInfo({ tipo: 'ativo', plano: org.plan })
+    const now = new Date()
+
+    // Plano pago com assinatura Stripe ativa
+    if (org.stripe_subscription_id && org.stripe_current_period_end) {
+      const periodEnd = new Date(org.stripe_current_period_end)
+      if (periodEnd > now) {
+        setState('ativo')
+        return
+      } else {
+        // Assinatura expirada
+        setState('vencido')
+        return
+      }
+    }
+
+    // Plano pago sem Stripe (definido manualmente) — tratar como suspeito/sem data
+    if (['starter', 'pro', 'enterprise'].includes(org.plan) && !org.stripe_subscription_id) {
+      // Se não tem assinatura Stripe, verificar se tem trial_ends_at como fallback
+      if (org.trial_ends_at) {
+        const trialEnd = new Date(org.trial_ends_at)
+        const dias = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        if (dias < 0) { setState('vencido'); return }
+        if (dias <= 5) { setDiasRestantes(dias); setState('expirando'); return }
+        setState('ativo')
+        return
+      }
+      // Sem nenhuma data — tratar como ativo (admin definiu manualmente, confiamos)
+      setState('ativo')
       return
     }
 
-    if (org.trial_ends_at) {
-      const dias = differenceInDays(new Date(org.trial_ends_at), new Date())
-      if (dias < 0) {
-        setInfo({ tipo: 'vencido' })
-      } else if (dias <= 5) {
-        setInfo({ tipo: 'expirando', dias })
-      } else {
-        setInfo({ tipo: 'trial', dias })
-      }
+    // Trial
+    if (org.plan === 'trial') {
+      if (!org.trial_ends_at) { setState('vencido'); return }
+      const trialEnd = new Date(org.trial_ends_at)
+      const dias = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      if (dias < 0) { setState('vencido'); return }
+      setDiasRestantes(dias)
+      if (dias <= 5) { setState('expirando'); return }
+      setState('trial')
+      return
     }
+
+    setState('ativo')
   }
 
-  if (!info.tipo || fechado) return null
+  if (!state || state === 'admin' || state === 'ativo' || dismissed) return null
 
-  // Admin — banner discreto âmbar
-  if (info.tipo === 'admin') {
-    return (
-      <div className="bg-amber-50 border-b border-amber-100 px-4 py-2 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm text-amber-700">
-          <Shield size={15} />
-          Modo administrador — acesso total liberado
-        </div>
-        <button onClick={() => setFechado(true)} className="text-amber-400 hover:text-amber-600">
-          <X size={15} />
-        </button>
+  if (state === 'vencido') return (
+    <div className="bg-red-500 text-white px-4 py-2.5 text-sm flex items-center justify-between gap-4">
+      <div className="flex items-center gap-2">
+        <AlertCircle size={15} className="shrink-0" />
+        <span>Seu período expirou. Assine um plano para continuar usando o AgendaAI.</span>
       </div>
-    )
-  }
+      <Link href="/planos" className="bg-white text-red-600 font-semibold text-xs px-3 py-1.5 rounded-lg shrink-0 hover:bg-red-50">
+        Assinar agora
+      </Link>
+    </div>
+  )
 
-  if (info.tipo === 'ativo') {
-    return (
-      <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-2 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm text-emerald-700">
-          <CheckCircle size={15} />
-          Plano <strong className="capitalize">{info.plano}</strong> ativo — obrigado por assinar!
-        </div>
-        <button onClick={() => setFechado(true)} className="text-emerald-500 hover:text-emerald-700">
-          <X size={15} />
-        </button>
-      </div>
-    )
-  }
-
-  if (info.tipo === 'vencido') {
-    return (
-      <div className="bg-red-500 text-white px-4 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <AlertTriangle size={16} />
-          Seu período gratuito expirou. Assine um plano para continuar usando o AgendaAI.
-        </div>
-        <Link href="/planos"
-          className="bg-white text-red-500 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5 shrink-0">
-          <CreditCard size={13} /> Assinar agora
-        </Link>
-      </div>
-    )
-  }
-
-  if (info.tipo === 'expirando') {
-    return (
-      <div className="bg-amber-400 text-amber-900 px-4 py-2.5 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <AlertTriangle size={15} />
-          {info.dias === 0
-            ? 'Seu período gratuito termina hoje!'
-            : `Seu período gratuito termina em ${info.dias} dia${info.dias! > 1 ? 's' : ''}.`}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link href="/planos"
-            className="bg-amber-900 text-amber-50 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-amber-800 transition-colors">
-            Ver planos
-          </Link>
-          <button onClick={() => setFechado(true)} className="text-amber-900 hover:text-amber-700">
-            <X size={16} />
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="bg-blue-50 border-b border-blue-100 px-4 py-2.5 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-2 text-sm text-blue-700">
-        <Clock size={15} />
-        Você está no <strong>período gratuito</strong> — {info.dias} dia{info.dias! > 1 ? 's' : ''} restante{info.dias! > 1 ? 's' : ''} de teste.
+  if (state === 'expirando') return (
+    <div className="bg-amber-500 text-white px-4 py-2.5 text-sm flex items-center justify-between gap-4">
+      <div className="flex items-center gap-2">
+        <AlertCircle size={15} className="shrink-0" />
+        <span>Seu plano expira em <strong>{diasRestantes} dia{diasRestantes !== 1 ? 's' : ''}</strong>. Renove para não perder o acesso.</span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <Link href="/planos"
-          className="bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
-          Ver planos
-        </Link>
-        <button onClick={() => setFechado(true)} className="text-blue-400 hover:text-blue-600">
-          <X size={15} />
-        </button>
+        <Link href="/planos" className="bg-white text-amber-600 font-semibold text-xs px-3 py-1.5 rounded-lg hover:bg-amber-50">Renovar</Link>
+        <button onClick={() => setDismissed(true)} className="text-white/70 hover:text-white"><X size={15} /></button>
       </div>
     </div>
   )
+
+  if (state === 'trial') return (
+    <div className="bg-brand text-white px-4 py-2.5 text-sm flex items-center justify-between gap-4">
+      <span>Período gratuito — <strong>{diasRestantes} dia{diasRestantes !== 1 ? 's' : ''} restante{diasRestantes !== 1 ? 's' : ''}</strong>. Aproveite tudo!</span>
+      <div className="flex items-center gap-2 shrink-0">
+        <Link href="/planos" className="bg-white text-brand font-semibold text-xs px-3 py-1.5 rounded-lg">Assinar agora</Link>
+        <button onClick={() => setDismissed(true)} className="text-white/70 hover:text-white"><X size={15} /></button>
+      </div>
+    </div>
+  )
+
+  return null
 }
