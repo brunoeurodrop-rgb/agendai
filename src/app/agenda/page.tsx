@@ -123,12 +123,7 @@ export default function AgendaPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ appointmentId: reagAppt.id, type: 'rescheduling' }),
     })
-    if (data?.whatsapp_sent) {
-  toast.success('Reagendado com sucesso! Cliente notificado via WhatsApp.')
-} else {
-  toast.success('Reagendado com sucesso!')
-  toast.error('Não foi possível enviar o WhatsApp. Verifique a conexão em Configurações.')
-}
+    toast.success('Reagendado com sucesso!')
     setReagModal(false)
     setReagSaving(false)
     loadMonth()
