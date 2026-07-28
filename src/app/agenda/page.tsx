@@ -79,12 +79,7 @@ export default function AgendaPage() {
       }
     }
     await supabase.from('appointments').update({ status }).eq('id', id)
-    if (data?.whatsapp_sent) {
-  toast.success(status === 'cancelled' ? 'Agendamento cancelado. Cliente notificado via WhatsApp.' : 'Status atualizado.')
-} else {
-  toast.success(status === 'cancelled' ? 'Agendamento cancelado.' : 'Status atualizado.')
-  if (status === 'cancelled') toast.error('Não foi possível enviar o WhatsApp. Verifique a conexão em Configurações.')
-}
+    toast.success(status === 'cancelled' ? 'Agendamento cancelado.' : 'Status atualizado.')
     loadMonth()
     if (status === 'cancelled') {
       fetch('/api/whatsapp/send', {
