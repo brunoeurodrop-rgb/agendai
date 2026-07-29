@@ -183,7 +183,7 @@ export default function DashboardPage() {
     setTodayAppts(today)
     setTodayRevenue(todayRev)
     // Total = agendamentos ativos (confirmados + pendentes, excluindo cancelados e concluídos)
-    setTodayTotal(today.filter((a: any) => ['confirmed', 'pending'].includes(a.status)).length)
+    setTodayTotal(today.filter((a: any) => a.status !== 'cancelled').length)
     setTodayConcluidos(concluidos.length)
     setTodayConfirmados(confirmados.length)
 
