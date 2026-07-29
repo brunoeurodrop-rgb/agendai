@@ -147,7 +147,8 @@ export default function RelatoriosPage() {
           <div className="text-2xl font-bold text-amber-500">{qtdFaltas}</div>
           <div className="text-xs text-gray-400 mt-1">No mês atual</div>
         </div>
-        
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top serviços */}
         <div className="card">
