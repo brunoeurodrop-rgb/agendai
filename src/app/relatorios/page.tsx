@@ -147,16 +147,7 @@ export default function RelatoriosPage() {
           <div className="text-2xl font-bold text-amber-500">{qtdFaltas}</div>
           <div className="text-xs text-gray-400 mt-1">No mês atual</div>
         </div>
-        <div className="card">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="bg-amber-50 p-1.5 rounded-lg"><Users size={15} className="text-amber-500" /></div>
-            <span className="text-xs text-gray-500">Faltas</span>
-          </div>
-          <div className="text-2xl font-bold text-amber-500">{qtdFaltas}</div>
-          <div className="text-xs text-gray-400 mt-1">No mês atual</div>
-        </div>
-      </div>
-
+        
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top serviços */}
         <div className="card">

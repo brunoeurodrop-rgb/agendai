@@ -316,7 +316,7 @@ export default function AgendaPage() {
                       <span className={`${s.cls} shrink-0 text-xs`}>{s.label}</span>
                     </div>
 
-                    {a.status !== 'cancelled' && a.status !== 'completed' && (
+                    {!['cancelled', 'completed', 'no_show'].includes(a.status) && (
                       <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-50">
                         <button onClick={() => changeStatus(a.id, 'completed')}
                           className="flex items-center gap-1.5 text-xs bg-brand-light text-brand-dark px-3 py-1.5 rounded-lg font-medium hover:bg-brand hover:text-white transition-colors">
