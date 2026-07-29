@@ -54,7 +54,7 @@ export default function RelatoriosPage() {
     setQtdTotal(all.length)
     setQtdConcluidos(completed.length)
     setQtdCancelados(cancelled.length)
-    const noShow = data.filter((a: any) => a.status === 'no_show')
+    const noShow = all.filter((a: any) => a.status === 'no_show')
     setQtdFaltas(noShow.length)
     setRecebidoMes(completed.reduce((s, a: any) => s + (a.service?.price || 0), 0))
     setAgendadoMes(notCancelled.reduce((s, a: any) => s + (a.service?.price || 0), 0))
