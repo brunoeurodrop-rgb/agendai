@@ -27,6 +27,7 @@ export default function RelatoriosPage() {
   const [agendadoMes, setAgendadoMes] = useState(0)
   const [qtdConcluidos, setQtdConcluidos] = useState(0)
   const [qtdCancelados, setQtdCancelados] = useState(0)
+  const [qtdFaltas, setQtdFaltas] = useState(0)
   const [qtdTotal, setQtdTotal] = useState(0)
   const [novoClientes, setNovoClientes] = useState(0)
   const [topServicos, setTopServicos] = useState<{ nome: string; qtd: number; valor: number }[]>([])
@@ -53,6 +54,8 @@ export default function RelatoriosPage() {
     setQtdTotal(all.length)
     setQtdConcluidos(completed.length)
     setQtdCancelados(cancelled.length)
+    const noShow = data.filter((a: any) => a.status === 'no_show')
+    setQtdFaltas(noShow.length)
     setRecebidoMes(completed.reduce((s, a: any) => s + (a.service?.price || 0), 0))
     setAgendadoMes(notCancelled.reduce((s, a: any) => s + (a.service?.price || 0), 0))
 
@@ -134,6 +137,22 @@ export default function RelatoriosPage() {
             <span className="text-xs text-gray-500">Cancelamentos</span>
           </div>
           <div className="text-2xl font-bold text-red-500">{qtdCancelados}</div>
+          <div className="text-xs text-gray-400 mt-1">No mês atual</div>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-amber-50 p-1.5 rounded-lg"><Users size={15} className="text-amber-500" /></div>
+            <span className="text-xs text-gray-500">Faltas</span>
+          </div>
+          <div className="text-2xl font-bold text-amber-500">{qtdFaltas}</div>
+          <div className="text-xs text-gray-400 mt-1">No mês atual</div>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="bg-amber-50 p-1.5 rounded-lg"><Users size={15} className="text-amber-500" /></div>
+            <span className="text-xs text-gray-500">Faltas</span>
+          </div>
+          <div className="text-2xl font-bold text-amber-500">{qtdFaltas}</div>
           <div className="text-xs text-gray-400 mt-1">No mês atual</div>
         </div>
       </div>
