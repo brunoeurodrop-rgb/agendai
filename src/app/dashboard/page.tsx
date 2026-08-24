@@ -252,12 +252,8 @@ export default function DashboardPage() {
     }
 
     // Gráfico 30 dias — busca separada para cobrir mês anterior também
-    const g30start = new Date(Date.UTC(
-      new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - 29
-    )).toISOString()
-    const g30end = new Date(Date.UTC(
-      new Date().getFullYear(), new Date().getMonth(), new Date().getDate(), 23, 59, 59
-    )).toISOString()
+    const g30start = subDays(new Date(), 29).toISOString()
+    const g30end = new Date().toISOString()
 
     const { data: g30data } = await supabase
       .from('appointments')
