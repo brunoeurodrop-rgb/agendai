@@ -12,7 +12,7 @@ const TZ = 'America/Sao_Paulo'
 
 function getTodayRangeBrasiliaAsUTC() {
   const now = new Date()
-  const todayStr = now.toLocaleDateString('en-CA', { timeZone: TZ })
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(now)
   return {
     start: new Date(`${todayStr}T00:00:00-03:00`),
     end: new Date(`${todayStr}T23:59:59.999-03:00`),
