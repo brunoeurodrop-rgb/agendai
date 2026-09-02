@@ -165,6 +165,7 @@ export default function DashboardPage() {
     setTodayAppts(today)
     setTodayRevenue(todayRev)
     setTodayTotal(today.filter((a: any) => a.status !== 'cancelled').length)
+    console.log('DEBUG hoje:', today.map((a: any) => ({ id: a.id, status: a.status, starts_at: a.starts_at })))
     setTodayConcluidos(concluidos.length)
     setTodayConfirmados(confirmados.length)
 
