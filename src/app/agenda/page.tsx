@@ -457,3 +457,9 @@ function AgendaContent() {
 }
 
 export default function AgendaPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64 text-gray-400 text-sm">Carregando...</div>}>
+      <AgendaContent />
+    </Suspense>
+  )
+}
