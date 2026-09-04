@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { format, addDays, subDays, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CalendarCheck, Users, Wallet, MessageCircle, Clock, ChevronRight, TrendingUp, TrendingDown, Target, Zap, Award, Star, AlertCircle } from 'lucide-react'
+import { CalendarCheck, Users, Wallet, MessageCircle, Clock, ChevronRight, TrendingUp, TrendingDown, Target, Zap, Award, Star, AlertCircle, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { Appointment } from '@/types'
@@ -80,6 +80,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [upcomingAppts, setUpcomingAppts] = useState<Appointment[]>([])
   const [todayAppts, setTodayAppts] = useState<Appointment[]>([])
+  const [pendentes, setPendentes] = useState<Appointment[]>([])
 
   // Métricas hoje
   const [todayRevenue, setTodayRevenue] = useState(0)
@@ -141,7 +142,7 @@ export default function DashboardPage() {
       monthRes, prevMonthRes,
       newClientsRes, prevMonthClientsRes,
       topServiceRes, topProfRes, topClientRes,
-      waRes, metaRes,
+      waRes, metaRes, pendentesRes,
     ] = await Promise.all([
       supabase.from('appointments').select('*, service:services(name,price), customer:customers(name), professional:professionals(name)').gte('starts_at', todayStart.toISOString()).lte('starts_at', todayEnd.toISOString()).order('starts_at'),
       supabase.from('appointments').select('status, service:services(price)').gte('starts_at', prevDayStart).lte('starts_at', prevDayEnd),
@@ -155,6 +156,13 @@ export default function DashboardPage() {
       supabase.from('appointments').select('customer_id, customer:customers(name)').gte('starts_at', monthStart).lte('starts_at', monthEnd).not('status', 'eq', 'cancelled'),
       supabase.from('messages_log').select('type, status').gte('created_at', monthStart).lte('created_at', monthEnd),
       supabase.from('goals').select('*').eq('org_id', orgId).eq('month', currentMonth).eq('type', 'revenue').maybeSingle(),
+      // Pendentes de conclusão: agendamentos passados ainda com status confirmed ou pending
+      supabase.from('appointments')
+        .select('*, service:services(name,price), customer:customers(name), professional:professionals(name)')
+        .lt('ends_at', new Date().toISOString())
+        .in('status', ['confirmed', 'pending'])
+        .order('starts_at', { ascending: false })
+        .limit(20),
     ])
 
     // Hoje
@@ -165,7 +173,6 @@ export default function DashboardPage() {
     setTodayAppts(today)
     setTodayRevenue(todayRev)
     setTodayTotal(today.filter((a: any) => a.status !== 'cancelled').length)
-    console.log('DEBUG hoje:', today.map((a: any) => ({ id: a.id, status: a.status, starts_at: a.starts_at })))
     setTodayConcluidos(concluidos.length)
     setTodayConfirmados(confirmados.length)
 
@@ -176,6 +183,7 @@ export default function DashboardPage() {
     setPrevDayTotal(pd.filter((a: any) => a.status !== 'cancelled').length)
 
     setUpcomingAppts(upcomingRes.data || [])
+    setPendentes(pendentesRes.data || [])
 
     // Mês
     const month = monthRes.data || []
@@ -278,6 +286,49 @@ export default function DashboardPage() {
           <CalendarCheck size={15} /> Novo agendamento
         </Link>
       </div>
+
+      {/* Pendentes de conclusão */}
+      {pendentes.length > 0 && (
+        <div className="border border-amber-200 bg-amber-50 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-amber-500" />
+              <h2 className="font-semibold text-amber-800 text-sm">
+                Pendentes de conclusão
+                <span className="ml-2 bg-amber-200 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">{pendentes.length}</span>
+              </h2>
+            </div>
+            <Link href="/agenda" className="text-xs text-amber-700 hover:underline flex items-center gap-1 font-medium">
+              Ver na agenda <ChevronRight size={12} />
+            </Link>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {pendentes.slice(0, 5).map(a => (
+              <div key={a.id} className="flex items-center gap-3 py-3">
+                <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold flex items-center justify-center shrink-0">
+                  {(a.customer as any)?.name?.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-amber-900 truncate">{(a.customer as any)?.name}</div>
+                  <div className="text-xs text-amber-600">
+                    {formatDateShort(a.starts_at)} · {formatTime(a.starts_at)} · {(a.service as any)?.name} · {(a.professional as any)?.name}
+                  </div>
+                </div>
+                <Link href="/agenda" className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-amber-600 transition-colors shrink-0">
+                  Registrar
+                </Link>
+              </div>
+            ))}
+            {pendentes.length > 5 && (
+              <div className="pt-3 text-center">
+                <Link href="/agenda" className="text-xs text-amber-700 hover:underline font-medium">
+                  Ver mais {pendentes.length - 5} pendente{pendentes.length - 5 !== 1 ? 's' : ''}
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Cards hoje */}
       <div>
