@@ -5,6 +5,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, X, MessageSquare, Wallet, Banknote, CreditCard, QrCode, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { Appointment } from '@/types'
 
@@ -31,7 +32,7 @@ const PAYMENT_METHODS = [
 
 const SLOTS = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
 
-export default function AgendaPage() {
+function AgendaContent() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState(new Date())
   const [allAppts, setAllAppts] = useState<Appointment[]>([])
