@@ -5,6 +5,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, X, MessageSquare, Wallet, Banknote, CreditCard, QrCode, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useSearchParams } from 'next/navigation'
 import type { Appointment } from '@/types'
 
 const TZ = 'America/Sao_Paulo'
@@ -48,9 +49,20 @@ export default function AgendaPage() {
   const [confirmFutureModal, setConfirmFutureModal] = useState(false)
   const [pendingComplete, setPendingComplete] = useState<Appointment | null>(null)
   const supabase = createClient()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const dateParam = searchParams.get('date')
+    if (dateParam) {
+      const d = new Date(`${dateParam}T12:00:00-03:00`)
+      if (!isNaN(d.getTime())) {
+        setSelectedDay(d)
+        setCurrentMonth(d)
+      }
+    }
+  }, [])
 
   useEffect(() => { loadMonth() }, [currentMonth])
-
   useEffect(() => {
     const filtered = allAppts.filter(a => {
       const apptDate = new Date(a.starts_at).toLocaleDateString('pt-BR', { timeZone: TZ })
