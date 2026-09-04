@@ -5,8 +5,6 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, X, MessageSquare, Wallet, Banknote, CreditCard, QrCode, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
 import type { Appointment } from '@/types'
 
 const TZ = 'America/Sao_Paulo'
@@ -50,10 +48,9 @@ function AgendaContent() {
   const [confirmFutureModal, setConfirmFutureModal] = useState(false)
   const [pendingComplete, setPendingComplete] = useState<Appointment | null>(null)
   const supabase = createClient()
-  const searchParams = useSearchParams()
-
   useEffect(() => {
-    const dateParam = searchParams.get('date')
+    const params = new URLSearchParams(window.location.search)
+    const dateParam = params.get('date')
     if (dateParam) {
       const d = new Date(`${dateParam}T12:00:00-03:00`)
       if (!isNaN(d.getTime())) {
@@ -458,3 +455,5 @@ function AgendaContent() {
     </div>
   )
 }
+
+export default function AgendaPage() {
