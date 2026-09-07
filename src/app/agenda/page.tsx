@@ -30,7 +30,7 @@ const PAYMENT_METHODS = [
 
 const SLOTS = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
 
-function AgendaContent() {
+export default function AgendaPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState(new Date())
   const [allAppts, setAllAppts] = useState<Appointment[]>([])
@@ -48,6 +48,7 @@ function AgendaContent() {
   const [confirmFutureModal, setConfirmFutureModal] = useState(false)
   const [pendingComplete, setPendingComplete] = useState<Appointment | null>(null)
   const supabase = createClient()
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const dateParam = params.get('date')
@@ -61,6 +62,7 @@ function AgendaContent() {
   }, [])
 
   useEffect(() => { loadMonth() }, [currentMonth])
+
   useEffect(() => {
     const filtered = allAppts.filter(a => {
       const apptDate = new Date(a.starts_at).toLocaleDateString('pt-BR', { timeZone: TZ })
@@ -70,7 +72,6 @@ function AgendaContent() {
     setDayAppts(filtered.sort((a, b) => a.starts_at.localeCompare(b.starts_at)))
   }, [selectedDay, allAppts])
 
-  // Carregar slots disponíveis ao mudar data do reagendamento
   useEffect(() => {
     if (reagModal && reagAppt && reagDate) loadAvailableSlots()
   }, [reagDate, reagModal])
@@ -92,42 +93,31 @@ function AgendaContent() {
     if (!reagAppt) return
     setLoadingSlots(true)
     setReagTime('')
-
     const profId = (reagAppt as any).professional_id || reagAppt.professional_id
     const duration = (reagAppt.service as any)?.duration_min || 60
-
-    // Buscar agendamentos do profissional no dia selecionado
     const dayStart = new Date(`${reagDate}T00:00:00-03:00`).toISOString()
     const dayEnd = new Date(`${reagDate}T23:59:59-03:00`).toISOString()
     const { data: ocupados } = await supabase
       .from('appointments')
       .select('starts_at, ends_at')
       .eq('professional_id', profId)
-      .not('id', 'eq', reagAppt.id) // excluir o próprio agendamento
+      .not('id', 'eq', reagAppt.id)
       .not('status', 'in', '(cancelled)')
       .gte('starts_at', dayStart)
       .lte('starts_at', dayEnd)
-
     const now = new Date()
-    const isToday = reagDate === now.toLocaleDateString('en-CA', { timeZone: TZ })
-
+    const isHoje = reagDate === now.toLocaleDateString('en-CA', { timeZone: TZ })
     const slots = SLOTS.filter(slot => {
       const slotStart = new Date(`${reagDate}T${slot}:00-03:00`)
       const slotEnd = new Date(slotStart.getTime() + duration * 60000)
-
-      // Filtrar horários passados se for hoje
-      if (isToday && slotStart <= now) return false
-
-      // Verificar conflito com outros agendamentos
+      if (isHoje && slotStart <= now) return false
       const temConflito = (ocupados || []).some(a => {
         const aStart = new Date(a.starts_at)
         const aEnd = new Date(a.ends_at)
         return slotStart < aEnd && slotEnd > aStart
       })
-
       return !temConflito
     })
-
     setAvailableSlots(slots)
     setLoadingSlots(false)
   }
@@ -136,7 +126,6 @@ function AgendaContent() {
     if (status === 'completed') {
       const appt = dayAppts.find(a => a.id === id)
       if (appt) {
-        // Verificar se o serviço ainda não aconteceu
         const agora = new Date()
         const inicioServico = new Date(appt.starts_at)
         if (inicioServico > agora) {
@@ -149,11 +138,8 @@ function AgendaContent() {
         return
       }
     }
-
     await supabase.from('appointments').update({ status }).eq('id', id)
-
     if (status === 'cancelled') {
-      // Enviar WhatsApp de cancelamento e tratar resultado
       try {
         const res = await fetch('/api/whatsapp/send', {
           method: 'POST',
@@ -174,7 +160,6 @@ function AgendaContent() {
     } else {
       toast.success('Status atualizado.')
     }
-
     loadMonth()
   }
 
@@ -215,8 +200,6 @@ function AgendaContent() {
       status: 'confirmed',
     }).eq('id', reagAppt.id)
     if (error) { toast.error('Erro ao reagendar'); setReagSaving(false); return }
-
-    // Enviar WhatsApp e tratar resultado
     try {
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -234,7 +217,6 @@ function AgendaContent() {
       toast.success('Reagendado com sucesso!')
       toast.error('Não foi possível enviar o WhatsApp. Verifique a conexão em Configurações.')
     }
-
     setReagModal(false)
     setReagSaving(false)
     loadMonth()
@@ -260,7 +242,6 @@ function AgendaContent() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendário */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><ChevronLeft size={16} /></button>
@@ -288,7 +269,6 @@ function AgendaContent() {
           </div>
         </div>
 
-        {/* Lista do dia */}
         <div className="lg:col-span-2 card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-900 text-sm capitalize">
@@ -296,7 +276,6 @@ function AgendaContent() {
             </h2>
             <span className="text-xs text-gray-400">{dayAppts.filter(a => a.status !== 'cancelled').length} agendamento(s)</span>
           </div>
-
           {loading ? (
             <div className="text-center py-12 text-gray-400 text-sm">Carregando...</div>
           ) : dayAppts.length === 0 ? (
@@ -325,7 +304,6 @@ function AgendaContent() {
                       </div>
                       <span className={`${s.cls} shrink-0 text-xs`}>{s.label}</span>
                     </div>
-
                     {!['cancelled', 'completed', 'no_show'].includes(a.status) && (
                       <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-50">
                         <button onClick={() => changeStatus(a.id, 'completed')}
@@ -355,7 +333,6 @@ function AgendaContent() {
         </div>
       </div>
 
-      {/* Modal de Reagendamento */}
       {reagModal && reagAppt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
@@ -405,7 +382,6 @@ function AgendaContent() {
         </div>
       )}
 
-      {/* Modal de Pagamento */}
       {payModal && payAppt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
@@ -429,7 +405,6 @@ function AgendaContent() {
         </div>
       )}
 
-      {/* Modal de confirmação de conclusão antecipada */}
       {confirmFutureModal && pendingComplete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
