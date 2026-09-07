@@ -455,5 +455,3 @@ function AgendaContent() {
     </div>
   )
 }
-
-export default function AgendaPage() {
