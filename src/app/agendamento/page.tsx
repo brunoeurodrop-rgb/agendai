@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { Check, ChevronRight, Plus } from 'lucide-react'
+import { Check, ChevronRight, Plus, AlertTriangle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import type { Service, Professional, Customer } from '@/types'
@@ -38,12 +38,14 @@ function EmptyState({ icon, title, description, buttonLabel, href }: {
   )
 }
 
+interface BookedSlot { starts_at: string; ends_at: string }
+
 export default function AgendamentoPage() {
   const [step, setStep] = useState(1)
   const [services, setServices] = useState<Service[]>([])
   const [professionals, setProfessionals] = useState<Professional[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [bookedSlots, setBookedSlots] = useState<string[]>([])
+  const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([])
   const [sel, setSel] = useState({
     service: null as Service | null,
     professional: null as Professional | null,
@@ -70,24 +72,36 @@ export default function AgendamentoPage() {
     })
   }, [])
 
+  // Buscar agendamentos do profissional com starts_at e ends_at
   useEffect(() => {
     if (!sel.professional || !sel.date) return
     const start = new Date(sel.date + 'T00:00:00-03:00').toISOString()
     const end = new Date(sel.date + 'T23:59:59-03:00').toISOString()
     supabase
       .from('appointments')
-      .select('starts_at')
+      .select('starts_at, ends_at')
       .eq('professional_id', sel.professional.id)
       .not('status', 'in', '(cancelled)')
       .gte('starts_at', start)
       .lte('starts_at', end)
-      .then(({ data }) => {
-        const times = (data || []).map(a =>
-          new Date(a.starts_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ })
-        )
-        setBookedSlots(times)
-      })
+      .then(({ data }) => setBookedSlots(data || []))
   }, [sel.professional, sel.date])
+
+  // Verificar se um slot conflita com agendamentos existentes considerando a duração do serviço
+  function isSlotBlocked(time: string): boolean {
+    if (isSlotInPast(sel.date, time)) return true
+    if (!sel.service) return false
+
+    const duration = sel.service.duration_min || 60
+    const slotStart = new Date(`${sel.date}T${time}:00-03:00`)
+    const slotEnd = new Date(slotStart.getTime() + duration * 60000)
+
+    return bookedSlots.some(b => {
+      const bStart = new Date(b.starts_at)
+      const bEnd = new Date(b.ends_at)
+      return slotStart < bEnd && slotEnd > bStart
+    })
+  }
 
   const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
@@ -232,16 +246,32 @@ export default function AgendamentoPage() {
               <label className="label">Horário disponível</label>
               <div className="grid grid-cols-5 gap-2">
                 {SLOTS.map(t => {
-                  const disabled = bookedSlots.includes(t) || isSlotInPast(sel.date, t)
+                  const blocked = isSlotBlocked(t)
+                  const isPast = isSlotInPast(sel.date, t)
+                  const isBooked = !isPast && blocked
                   return (
-                    <button key={t} disabled={disabled} onClick={() => setSel(f => ({ ...f, time: t }))}
-                      className={`py-2 rounded-lg text-xs font-medium border transition-all ${sel.time === t ? 'border-brand bg-brand text-white' : disabled ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed' : 'border-gray-200 hover:border-brand hover:text-brand'}`}>
+                    <button key={t} disabled={blocked} onClick={() => setSel(f => ({ ...f, time: t }))}
+                      title={isBooked ? 'Horário ocupado para este profissional' : isPast ? 'Horário no passado' : ''}
+                      className={`py-2 rounded-lg text-xs font-medium border transition-all relative ${
+                        sel.time === t
+                          ? 'border-brand bg-brand text-white'
+                          : isBooked
+                            ? 'border-red-100 bg-red-50 text-red-300 cursor-not-allowed'
+                            : isPast
+                              ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                              : 'border-gray-200 hover:border-brand hover:text-brand'
+                      }`}>
                       {t}
+                      {isBooked && <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-400 rounded-full" />}
                     </button>
                   )
                 })}
               </div>
-              {sel.date === getTodayBrasilia() && <p className="text-xs text-gray-400 mt-2">Horários anteriores ao atual estão desabilitados.</p>}
+              <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-50 border border-red-100"></div> Ocupado</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-gray-50 border border-gray-100"></div> Passado</div>
+                <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded border border-gray-200"></div> Disponível</div>
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setStep(2)} className="btn-secondary flex-1">Voltar</button>
@@ -266,10 +296,13 @@ export default function AgendamentoPage() {
                       <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark font-semibold text-xs flex items-center justify-center shrink-0">
                         {c.name.slice(0, 2).toUpperCase()}
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm text-gray-900">{c.name}</div>
                         <div className="text-xs text-gray-400">{c.phone}</div>
                       </div>
+                      {(c as any).notes && (
+                        <AlertTriangle size={14} className="text-amber-400 shrink-0" title="Cliente tem observações" />
+                      )}
                     </button>
                   ))}
                   {filteredCustomers.length === 0 && <p className="text-sm text-gray-400 py-4 text-center">Nenhum cliente encontrado.</p>}
@@ -283,6 +316,18 @@ export default function AgendamentoPage() {
         {step === 5 && sel.service && sel.professional && sel.customer && (
           <div className="card">
             <h2 className="font-medium text-gray-900 mb-4">Confirmar agendamento</h2>
+
+            {/* Alerta de observações do cliente */}
+            {(sel.customer as any).notes && (
+              <div className="flex items-start gap-2.5 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <AlertTriangle size={15} className="text-amber-500 mt-0.5 shrink-0" />
+                <div>
+                  <div className="text-xs font-semibold text-amber-800 mb-0.5">Observação sobre o cliente</div>
+                  <div className="text-xs text-amber-700">{(sel.customer as any).notes}</div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3 mb-5">
               {[
                 ['Serviço', sel.service.name, `R$${Number(sel.service.price).toFixed(2)} · ${sel.service.duration_min}min`],
