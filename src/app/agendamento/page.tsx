@@ -301,7 +301,7 @@ export default function AgendamentoPage() {
                         <div className="text-xs text-gray-400">{c.phone}</div>
                       </div>
                       {(c as any).notes && (
-                        <AlertTriangle size={14} className="text-amber-400 shrink-0" title="Cliente tem observações" />
+                        <AlertTriangle size={14} className="text-amber-400 shrink-0" />
                       )}
                     </button>
                   ))}
