@@ -14,9 +14,9 @@ export function rateLimit(key: string, options: RateLimitOptions): { allowed: bo
 
   // Limpar entradas expiradas periodicamente
   if (requests.size > 10000) {
-    for (const [k, v] of requests.entries()) {
+    requests.forEach((v, k) => {
       if (v.resetAt < now) requests.delete(k)
-    }
+    })
   }
 
   if (!entry || entry.resetAt < now) {
