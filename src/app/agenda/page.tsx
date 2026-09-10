@@ -82,7 +82,7 @@ export default function AgendaPage() {
     const end = endOfMonth(currentMonth)
     const { data } = await supabase
       .from('appointments')
-      .select('*, customer:customers(name, phone), professional:professionals(name), service:services(name, price, duration_min, color)')
+      .select('*, customer:customers(name, phone, notes), professional:professionals(name), service:services(name, price, duration_min, color)')
       .gte('starts_at', start.toISOString())
       .lte('starts_at', end.toISOString())
     setAllAppts(data || [])
@@ -300,6 +300,11 @@ export default function AgendaPage() {
                           <div className="text-xs text-gray-400 mt-0.5">
                             {formatTime(a.starts_at)} · {(a.service as any)?.name} · {(a.professional as any)?.name}
                           </div>
+                          {(a.customer as any)?.notes && (
+                            <div className="flex items-center gap-1 mt-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg">
+                              ⚠️ {(a.customer as any)?.notes}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <span className={`${s.cls} shrink-0 text-xs`}>{s.label}</span>
