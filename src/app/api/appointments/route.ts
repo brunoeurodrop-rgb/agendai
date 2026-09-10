@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase-server'
 import { sendWhatsAppMessage, buildMessage } from '@/lib/whatsapp'
+import { rateLimit, LIMITS } from '@/lib/rate-limit'
+import { sanitizeString, sanitizeDate } from '@/lib/sanitize'
 
 const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
 
@@ -13,17 +15,47 @@ function isPlanActive(plan: string, trialEndsAt: string | null, userEmail: strin
   return false
 }
 
+function getClientIP(req: NextRequest): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  )
+}
+
 export async function POST(req: NextRequest) {
   try {
+    // Rate limiting por IP
+    const ip = getClientIP(req)
+    const { allowed, remaining } = rateLimit(`appointments:${ip}`, LIMITS.appointments)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Muitas requisições. Tente novamente em alguns minutos.' },
+        { status: 429, headers: { 'X-RateLimit-Remaining': '0' } }
+      )
+    }
+
     const supabase = createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
     const body = await req.json()
-    const { customer_id, professional_id, service_id, starts_at, notes } = body
+
+    // Sanitizar inputs
+    const customer_id = sanitizeString(body.customer_id, 36)
+    const professional_id = sanitizeString(body.professional_id, 36)
+    const service_id = sanitizeString(body.service_id, 36)
+    const starts_at = sanitizeDate(body.starts_at)
+    const notes = sanitizeString(body.notes || '', 500)
 
     if (!customer_id || !professional_id || !service_id || !starts_at) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
+    }
+
+    // Validar UUIDs
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(customer_id) || !uuidRegex.test(professional_id) || !uuidRegex.test(service_id)) {
+      return NextResponse.json({ error: 'IDs inválidos' }, { status: 400 })
     }
 
     const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
@@ -60,7 +92,6 @@ export async function POST(req: NextRequest) {
       trial: 20, starter: 50, pro: 500, enterprise: 99999
     }
 
-    // Verificar limites extras do banco
     const { data: orgExtra } = await supabase
       .from('organizations')
       .select('limite_agendamentos')
@@ -78,12 +109,21 @@ export async function POST(req: NextRequest) {
       }, { status: 403 })
     }
 
-    const { data: service } = await supabase.from('services').select('duration_min').eq('id', service_id).single()
-    if (!service) return NextResponse.json({ error: 'Serviço não encontrado' }, { status: 404 })
+    // Verificar se cliente, profissional e serviço pertencem à org
+    const [custCheck, profCheck, svcCheck] = await Promise.all([
+      supabase.from('customers').select('id').eq('id', customer_id).eq('org_id', profile.org_id).single(),
+      supabase.from('professionals').select('id').eq('id', professional_id).eq('org_id', profile.org_id).single(),
+      supabase.from('services').select('id, duration_min').eq('id', service_id).eq('org_id', profile.org_id).single(),
+    ])
+
+    if (!custCheck.data || !profCheck.data || !svcCheck.data) {
+      return NextResponse.json({ error: 'Dados inválidos para esta organização' }, { status: 403 })
+    }
 
     const startsAt = new Date(starts_at)
-    const endsAt = new Date(startsAt.getTime() + service.duration_min * 60000)
+    const endsAt = new Date(startsAt.getTime() + svcCheck.data.duration_min * 60000)
 
+    // Verificar conflito de horário
     const { data: conflict } = await supabase
       .from('appointments').select('id')
       .eq('professional_id', professional_id)
@@ -98,9 +138,14 @@ export async function POST(req: NextRequest) {
     const { data: appt, error } = await supabase
       .from('appointments')
       .insert({
-        org_id: profile.org_id, customer_id, professional_id, service_id,
-        starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString(),
-        status: 'confirmed', notes: notes || null,
+        org_id: profile.org_id,
+        customer_id,
+        professional_id,
+        service_id,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+        status: 'confirmed',
+        notes: notes || null,
       })
       .select().single()
 
@@ -125,13 +170,25 @@ export async function POST(req: NextRequest) {
       const phone = customerRes.data?.phone || ''
       whatsappSent = await sendWhatsAppMessage(phone, message, orgRes.data?.wapi_instance_id || undefined, orgRes.data?.wapi_token || undefined)
       await adminSupabase.from('messages_log').insert({
-        org_id: profile.org_id, appointment_id: appt.id, type: 'confirmation',
-        phone, message, status: whatsappSent ? 'sent' : 'failed', sent_at: whatsappSent ? new Date().toISOString() : null,
+        org_id: profile.org_id,
+        appointment_id: appt.id,
+        type: 'confirmation',
+        phone,
+        message,
+        status: whatsappSent ? 'sent' : 'failed',
+        sent_at: whatsappSent ? new Date().toISOString() : null,
       })
-      if (whatsappSent) await adminSupabase.from('appointments').update({ wa_confirmation_sent: true }).eq('id', appt.id)
-    } catch (waErr) { console.error('[WhatsApp]', waErr) }
+      if (whatsappSent) {
+        await adminSupabase.from('appointments').update({ wa_confirmation_sent: true }).eq('id', appt.id)
+      }
+    } catch (waErr) {
+      console.error('[WhatsApp]', waErr)
+    }
 
-    return NextResponse.json({ success: true, appointment: appt, whatsapp_sent: whatsappSent })
+    return NextResponse.json(
+      { success: true, appointment: appt, whatsapp_sent: whatsappSent },
+      { headers: { 'X-RateLimit-Remaining': String(remaining) } }
+    )
   } catch (err) {
     console.error('[API Appointments POST]', err)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
@@ -140,19 +197,29 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    // Rate limiting
+    const ip = getClientIP(req)
+    const { allowed } = rateLimit(`appointments-get:${ip}`, LIMITS.general)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Muitas requisições.' }, { status: 429 })
+    }
+
     const supabase = createServerSupabaseClient()
     const { searchParams } = new URL(req.url)
-    const date = searchParams.get('date')
-    const professionalId = searchParams.get('professional_id')
+    const date = sanitizeDate(searchParams.get('date') || '')
+    const professionalId = sanitizeString(searchParams.get('professional_id') || '', 36)
+
     let query = supabase.from('appointments')
       .select('*, customer:customers(*), professional:professionals(*), service:services(*)')
       .order('starts_at')
+
     if (date) {
       const start = new Date(date); start.setHours(0, 0, 0, 0)
       const end = new Date(date); end.setHours(23, 59, 59, 999)
       query = query.gte('starts_at', start.toISOString()).lte('starts_at', end.toISOString())
     }
     if (professionalId) query = query.eq('professional_id', professionalId)
+
     const { data, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ appointments: data })
