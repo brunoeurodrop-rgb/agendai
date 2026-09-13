@@ -298,8 +298,8 @@ export default function DashboardPage() {
                 <span className="ml-2 bg-amber-200 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">{pendentes.length}</span>
               </h2>
             </div>
-            <Link href="/agenda" className="text-xs text-amber-700 hover:underline flex items-center gap-1 font-medium">
-              Ver na agenda <ChevronRight size={12} />
+            <Link href="/agenda/pendentes" className="text-xs text-amber-700 hover:underline flex items-center gap-1 font-medium">
+              Ver todos <ChevronRight size={12} />
             </Link>
           </div>
           <div className="divide-y divide-amber-100">
@@ -314,14 +314,14 @@ export default function DashboardPage() {
                     {formatDateShort(a.starts_at)} · {formatTime(a.starts_at)} · {(a.service as any)?.name} · {(a.professional as any)?.name}
                   </div>
                 </div>
-                <Link href={`/agenda?date=${new Date(a.starts_at).toLocaleDateString('en-CA', { timeZone: TZ })}`} className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-amber-600 transition-colors shrink-0">
+                <Link href="/agenda" className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-amber-600 transition-colors shrink-0">
                   Registrar
                 </Link>
               </div>
             ))}
             {pendentes.length > 5 && (
               <div className="pt-3 text-center">
-                <Link href="/agenda" className="text-xs text-amber-700 hover:underline font-medium">
+                <Link href="/agenda/pendentes" className="text-xs text-amber-700 hover:underline font-medium">
                   Ver mais {pendentes.length - 5} pendente{pendentes.length - 5 !== 1 ? 's' : ''}
                 </Link>
               </div>
