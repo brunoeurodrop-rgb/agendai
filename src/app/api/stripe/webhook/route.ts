@@ -12,6 +12,20 @@ function getPeriodEnd(sub: any): string | null {
   return new Date(ts * 1000).toISOString()
 }
 
+async function getOrgId(supabase: any, subscriptionId: string, metadataOrgId?: string): Promise<string | null> {
+  // Tentar primeiro pelo metadata
+  if (metadataOrgId) return metadataOrgId
+
+  // Buscar pelo stripe_subscription_id no banco
+  const { data } = await supabase
+    .from('organizations')
+    .select('id')
+    .eq('stripe_subscription_id', subscriptionId)
+    .single()
+
+  return data?.id || null
+}
+
 export async function POST(req: NextRequest) {
   try {
     const Stripe = (await import('stripe')).default
@@ -37,20 +51,23 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as any
         const orgId = session.metadata?.org_id
         const subscriptionId = session.subscription
-        if (!orgId) break
+        if (!orgId || !subscriptionId) break
 
         let plan = 'starter'
         let periodEnd: string | null = null
 
-        if (subscriptionId) {
-          try {
-            const subscription = await stripe.subscriptions.retrieve(subscriptionId) as any
-            const priceId = subscription.items.data[0]?.price.id
-            plan = PRICE_TO_PLAN[priceId] || 'starter'
-            periodEnd = getPeriodEnd(subscription)
-          } catch (err) {
-            console.error('[Webhook] Erro ao buscar assinatura:', err)
-          }
+        try {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId) as any
+          const priceId = subscription.items.data[0]?.price.id
+          plan = PRICE_TO_PLAN[priceId] || 'starter'
+          periodEnd = getPeriodEnd(subscription)
+
+          // Adicionar org_id nos metadados da assinatura para eventos futuros
+          await stripe.subscriptions.update(subscriptionId, {
+            metadata: { org_id: orgId }
+          })
+        } catch (err) {
+          console.error('[Webhook] Erro ao buscar/atualizar assinatura:', err)
         }
 
         await supabase.from('organizations').update({
@@ -66,8 +83,15 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.updated':
       case 'customer.subscription.created': {
         const sub = event.data.object as any
-        const orgId = sub.metadata?.org_id
-        if (!orgId) break
+        const subscriptionId = sub.id
+
+        // Buscar org pelo metadata OU pelo subscription_id no banco
+        const orgId = await getOrgId(supabase, subscriptionId, sub.metadata?.org_id)
+        if (!orgId) {
+          console.log('[Webhook] org_id não encontrado para subscription:', subscriptionId)
+          break
+        }
+
         const priceId = sub.items.data[0]?.price.id
         const plan = PRICE_TO_PLAN[priceId] || 'starter'
         const active = ['active', 'trialing'].includes(sub.status)
@@ -75,16 +99,19 @@ export async function POST(req: NextRequest) {
 
         await supabase.from('organizations').update({
           plan: active ? plan : 'trial',
-          stripe_subscription_id: sub.id,
+          stripe_subscription_id: subscriptionId,
           stripe_current_period_end: periodEnd,
         }).eq('id', orgId)
+
+        console.log('[Webhook] Assinatura atualizada - org:', orgId, 'plano:', plan, 'vence:', periodEnd)
         break
       }
 
       case 'customer.subscription.deleted': {
         const sub = event.data.object as any
-        const orgId = sub.metadata?.org_id
+        const orgId = await getOrgId(supabase, sub.id, sub.metadata?.org_id)
         if (!orgId) break
+
         await supabase.from('organizations').update({
           plan: 'trial',
           stripe_current_period_end: null,
@@ -92,12 +119,41 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'invoice.payment_succeeded': {
+        // Atualizar period_end quando fatura é paga (renovação)
+        const invoice = event.data.object as any
+        const subId = invoice.subscription
+        if (!subId) break
+
+        try {
+          const subscription = await stripe.subscriptions.retrieve(subId) as any
+          const periodEnd = getPeriodEnd(subscription)
+          const orgId = await getOrgId(supabase, subId, subscription.metadata?.org_id)
+          if (!orgId) break
+
+          await supabase.from('organizations').update({
+            stripe_current_period_end: periodEnd,
+          }).eq('id', orgId)
+
+          console.log('[Webhook] Renovação - org:', orgId, 'novo vencimento:', periodEnd)
+        } catch (err) {
+          console.error('[Webhook] Erro ao processar renovação:', err)
+        }
+        break
+      }
+
       case 'invoice.payment_failed': {
         const invoice = event.data.object as any
         const subId = invoice.subscription
         if (!subId) break
-        const { data: org } = await supabase.from('organizations').select('id').eq('stripe_subscription_id', subId).single()
-        if (org) await supabase.from('organizations').update({ plan: 'trial', stripe_current_period_end: null }).eq('id', org.id)
+
+        const orgId = await getOrgId(supabase, subId)
+        if (orgId) {
+          await supabase.from('organizations').update({
+            plan: 'trial',
+            stripe_current_period_end: null,
+          }).eq('id', orgId)
+        }
         break
       }
     }
