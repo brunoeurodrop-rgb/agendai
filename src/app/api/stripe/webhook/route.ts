@@ -7,8 +7,14 @@ const PRICE_TO_PLAN: Record<string, string> = {
 }
 
 function getPeriodEnd(sub: any): string | null {
-  const ts = sub.current_period_end
-  if (!ts) return null
+  // Tentar diferentes campos dependendo da versão da API
+  const ts = sub.current_period_end 
+    ?? sub.billing_cycle_anchor 
+    ?? null
+  if (!ts) {
+    console.log('[Webhook] getPeriodEnd - campos disponíveis:', Object.keys(sub))
+    return null
+  }
   return new Date(ts * 1000).toISOString()
 }
 
