@@ -4,7 +4,6 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   try {
-    // Importar Stripe dentro da função para evitar erro de build
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
       apiVersion: '2025-03-31.basil' as any,
@@ -70,14 +69,19 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://agendai.vercel.app'
 
+    // Calcular billing_cycle_anchor: 30 dias a partir de hoje
+    // Isso garante que o cliente paga 30 dias exatos independente de quando assinar
+    const billingAnchor = Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)
+
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
-        trial_period_days: 14,
         metadata: { org_id: profile.org_id },
+        billing_cycle_anchor: billingAnchor,
+        proration_behavior: 'none',
       },
       success_url: `${baseUrl}/assinatura/sucesso`,
       cancel_url: `${baseUrl}/assinatura/cancelada`,
