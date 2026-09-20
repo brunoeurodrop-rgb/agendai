@@ -267,6 +267,30 @@ export default function ConfiguracoesPage() {
         {/* ABA WHATSAPP */}
         {tab === 'whatsapp' && (
           <>
+            {/* Aviso sobre uso correto do WhatsApp */}
+            <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <h3 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                ℹ️ Boas práticas para evitar bloqueios
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 text-xs text-blue-700">
+                  <span className="text-green-600 font-bold mt-0.5">✅</span>
+                  <span>Use um número <strong>exclusivo do estabelecimento</strong>, nunca o número pessoal</span>
+                </div>
+                <div className="flex items-start gap-2 text-xs text-blue-700">
+                  <span className="text-green-600 font-bold mt-0.5">✅</span>
+                  <span>O sistema envia apenas mensagens <strong>automáticas e personalizadas</strong> — confirmações, lembretes e avisos</span>
+                </div>
+                <div className="flex items-start gap-2 text-xs text-blue-700">
+                  <span className="text-amber-500 font-bold mt-0.5">⚠️</span>
+                  <span>Não utilize o mesmo número para <strong>disparos manuais em massa</strong> ou promoções</span>
+                </div>
+                <div className="flex items-start gap-2 text-xs text-blue-700">
+                  <span className="text-amber-500 font-bold mt-0.5">⚠️</span>
+                  <span>Em caso de bloqueio pelo WhatsApp, crie uma <strong>nova instância na W-API</strong> com outro número</span>
+                </div>
+              </div>
+            </div>
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-green-50 to-white">
                 <div className="flex items-center justify-between">
