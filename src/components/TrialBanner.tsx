@@ -109,7 +109,7 @@ export default function TrialBanner() {
     <div className="bg-red-500 text-white px-4 py-2.5 text-sm flex items-center justify-between gap-4">
       <div className="flex items-center gap-2">
         <AlertCircle size={15} className="shrink-0" />
-        <span>Seu período expirou. Assine um plano para continuar usando o AgendaAI.</span>
+        <span>Seu período expirou. Assine um plano para continuar usando o Está Agendado.</span>
       </div>
       <Link href="/planos" className="bg-white text-red-600 font-semibold text-xs px-3 py-1.5 rounded-lg shrink-0 hover:bg-red-50">
         Assinar agora

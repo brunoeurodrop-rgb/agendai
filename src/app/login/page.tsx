@@ -46,7 +46,7 @@ export default function LoginPage() {
 
     const { error: loginError } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
     if (loginError) { toast.error('Conta criada! Faça login para continuar.'); setMode('login'); return }
-    toast.success('Conta criada! Bem-vindo ao AgendaAI 🎉')
+    toast.success('Conta criada! Bem-vindo ao Está Agendado 🎉')
     router.push('/dashboard')
   }
 
@@ -54,7 +54,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-emerald-50/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-3xl font-bold text-brand mb-1">Agenda<span className="text-gray-900">AI</span></div>
+          <div className="text-3xl font-bold text-gray-900 mb-1">Está <span className="text-brand">Agendado</span></div>
           <p className="text-gray-500 text-sm">Agendamento automático com WhatsApp</p>
         </div>
 
