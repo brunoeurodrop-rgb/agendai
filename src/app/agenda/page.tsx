@@ -31,8 +31,28 @@ const PAYMENT_METHODS = [
 const SLOTS = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
 
 export default function AgendaPage() {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [selectedDay, setSelectedDay] = useState(new Date())
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const dateParam = params.get('date')
+      if (dateParam) {
+        const d = new Date(`${dateParam}T12:00:00-03:00`)
+        if (!isNaN(d.getTime())) return d
+      }
+    }
+    return new Date()
+  })
+  const [selectedDay, setSelectedDay] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const dateParam = params.get('date')
+      if (dateParam) {
+        const d = new Date(`${dateParam}T12:00:00-03:00`)
+        if (!isNaN(d.getTime())) return d
+      }
+    }
+    return new Date()
+  })
   const [allAppts, setAllAppts] = useState<Appointment[]>([])
   const [dayAppts, setDayAppts] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
