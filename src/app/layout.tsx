@@ -6,7 +6,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'AgendaAI — Agendamento com WhatsApp',
+  title: 'Está Agendado — Agendamento com WhatsApp',
   description: 'Automatize seu agendamento e reduza faltas com WhatsApp.',
 }
 
