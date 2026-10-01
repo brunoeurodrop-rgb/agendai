@@ -56,10 +56,14 @@ export default function AgendaPage() {
       const d = new Date(`${dateParam}T12:00:00-03:00`)
       if (!isNaN(d.getTime())) {
         setSelectedDay(d)
-        setCurrentMonth(d)
+        setCurrentMonth(prev => {
+          // Força o loadMonth a rodar novamente com a nova data
+          setTimeout(() => loadMonth(), 0)
+          return d
+        })
       }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => { loadMonth() }, [currentMonth])
 
