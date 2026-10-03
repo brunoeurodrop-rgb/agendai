@@ -1,0 +1,120 @@
+﻿'use client'
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase-client'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight, X, MessageSquare, Wallet, Banknote, CreditCard, QrCode, AlertTriangle } from 'lucide-react'
+import toast from 'react-hot-toast'
+import type { Appointment } from '@/types'
+
+const TZ = 'America/Sao_Paulo'
+
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: TZ })
+}
+
+const STATUS: Record<string, { label: string; cls: string }> = {
+  confirmed: { label: 'Confirmado', cls: 'pill-green' },
+  pending:   { label: 'Pendente',   cls: 'pill-yellow' },
+  cancelled: { label: 'Cancelado',  cls: 'pill-red' },
+  completed: { label: 'ConcluÃ­do',  cls: 'pill-blue' },
+  no_show:   { label: 'Faltou',     cls: 'pill-gray' },
+}
+
+const PAYMENT_METHODS = [
+  { id: 'pix',           label: 'Pix',           icon: QrCode,     color: 'bg-teal-50 text-teal-600 border-teal-200' },
+  { id: 'dinheiro',      label: 'Dinheiro',       icon: Banknote,   color: 'bg-green-50 text-green-600 border-green-200' },
+  { id: 'cartao_debito', label: 'CartÃ£o DÃ©bito',  icon: CreditCard, color: 'bg-blue-50 text-blue-600 border-blue-200' },
+  { id: 'cartao_credito',label: 'CartÃ£o CrÃ©dito', icon: CreditCard, color: 'bg-purple-50 text-purple-600 border-purple-200' },
+]
+
+const SLOTS = ['07:00','07:30','08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','12:00','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']
+
+export default function AgendaPage() {
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [selectedDay, setSelectedDay] = useState(new Date())
+  const [allAppts, setAllAppts] = useState<Appointment[]>([])
+  const [dayAppts, setDayAppts] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [reagModal, setReagModal] = useState(false)
+  const [reagAppt, setReagAppt] = useState<Appointment | null>(null)
+  const [reagDate, setReagDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [reagTime, setReagTime] = useState('')
+  const [reagSaving, setReagSaving] = useState(false)
+  const [availableSlots, setAvailableSlots] = useState<string[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [payModal, setPayModal] = useState(false)
+  const [payAppt, setPayAppt] = useState<Appointment | null>(null)
+  const [confirmFutureModal, setConfirmFutureModal] = useState(false)
+  const [pendingComplete, setPendingComplete] = useState<Appointment | null>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const dateParam = params.get('date')
+    if (dateParam) {
+      const d = new Date(`${dateParam}T12:00:00-03:00`)
+      if (!isNaN(d.getTime())) {
+        setSelectedDay(d)
+        setCurrentMonth(prev => {
+          // ForÃ§a o loadMonth a rodar novamente com a nova data
+          setTimeout(() => loadMonth(), 0)
+          return d
+        })
+      }
+    }
+  }, [])
+
+  useEffect(() => { loadMonth() }, [currentMonth])
+
+  useEffect(() => {
+    const filtered = allAppts.filter(a => {
+      const apptDate = new Date(a.starts_at).toLocaleDateString('pt-BR', { timeZone: TZ })
+      const selDate = selectedDay.toLocaleDateString('pt-BR', { timeZone: TZ })
+      return apptDate === selDate
+    })
+    setDayAppts(filtered.sort((a, b) => a.starts_at.localeCompare(b.starts_at)))
+  }, [selectedDay, allAppts])
+
+  useEffect(() => {
+    if (reagModal && reagAppt && reagDate) loadAvailableSlots()
+  }, [reagDate, reagModal])
+
+  async function loadMonth() {
+    setLoading(true)
+    const start = startOfMonth(currentMonth)
+    const end = endOfMonth(currentMonth)
+    const { data } = await supabase
+      .from('appointments')
+      .select('*, customer:customers(name, phone, notes), professional:professionals(name), service:services(name, price, duration_min, color)')
+      .gte('starts_at', start.toISOString())
+      .lte('starts_at', end.toISOString())
+    setAllAppts(data || [])
+    setLoading(false)
+  }
+
+  async function loadAvailableSlots() {
+    if (!reagAppt) return
+    setLoadingSlots(true)
+    setReagTime('')
+    const profId = (reagAppt as any).professional_id || reagAppt.professional_id
+    const duration = (reagAppt.service as any)?.duration_min || 60
+    const dayStart = new Date(`${reagDate}T00:00:00-03:00`).toISOString()
+    const dayEnd = new Date(`${reagDate}T23:59:59-03:00`).toISOString()
+    const { data: ocupados } = await supabase
+      .from('appointments')
+      .select('starts_at, ends_at')
+      .eq('professional_id', profId)
+      .not('id', 'eq', reagAppt.id)
+      .not('status', 'in', '(cancelled)')
+      .gte('starts_at', dayStart)
+      .lte('starts_at', dayEnd)
+    const now = new Date()
+    const isHoje = reagDate === now.toLocaleDateString('en-CA', { timeZone: TZ })
+    const slots = SLOTS.filter(slot => {
+      const slotStart = new Date(`${reagDate}T${slot}:00-03:00`)
+      const slotEnd = new Date(slotStart.getTime() + duration * 60000)
+      if (isHoje && slotStart <= now) return false
+      const temConflito = (ocupados || []).some(a => {
+        const aStart = new Date(a.starts_at)
+        const aEnd = new Date(a.ends_at)
