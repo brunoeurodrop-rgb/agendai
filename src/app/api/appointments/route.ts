@@ -6,11 +6,14 @@ import { sanitizeString, sanitizeDate } from '@/lib/sanitize'
 
 const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
 
-function isPlanActive(plan: string, trialEndsAt: string | null, userEmail: string): boolean {
+function isPlanActive(plan: string, trialEndsAt: string | null, periodEnd: string | null, userEmail: string): boolean {
   if (userEmail === ADMIN_EMAIL) return true
-  if (plan === 'starter' || plan === 'pro' || plan === 'enterprise') return true
   if (plan === 'trial' && trialEndsAt) {
     return new Date(trialEndsAt) > new Date()
+  }
+  if (plan === 'starter' || plan === 'pro' || plan === 'enterprise') {
+    if (!periodEnd) return false
+    return new Date(periodEnd) > new Date()
   }
   return false
 }
@@ -64,11 +67,11 @@ export async function POST(req: NextRequest) {
     // Verificar se o plano está ativo
     const { data: org } = await supabase
       .from('organizations')
-      .select('plan, trial_ends_at')
+      .select('plan, trial_ends_at, stripe_current_period_end')
       .eq('id', profile.org_id)
       .single()
 
-    if (!org || !isPlanActive(org.plan, org.trial_ends_at, user.email || '')) {
+    if (!org || !isPlanActive(org.plan, org.trial_ends_at, org.stripe_current_period_end, user.email || '')) {
       return NextResponse.json({
         error: 'Seu período gratuito expirou. Assine um plano para continuar criando agendamentos.',
         code: 'PLAN_EXPIRED'
