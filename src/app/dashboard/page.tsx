@@ -314,7 +314,7 @@ export default function DashboardPage() {
                     {formatDateShort(a.starts_at)} · {formatTime(a.starts_at)} · {(a.service as any)?.name} · {(a.professional as any)?.name}
                   </div>
                 </div>
-                <Link href="/agenda" className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-amber-600 transition-colors shrink-0">
+                <Link href={`/agenda?date=${new Date(a.starts_at).toLocaleDateString('en-CA', { timeZone: TZ })}`} className="text-xs bg-amber-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-amber-600 transition-colors shrink-0">
                   Registrar
                 </Link>
               </div>
