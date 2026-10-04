@@ -23,7 +23,7 @@ export default function RecuperarSenhaPage() {
     setLoading(true)
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: 'https://vermillion-palmier-d545a3.netlify.app/redefinir-senha',
+      redirectTo: 'https://estaagendado.com.br/redefinir-senha',
     })
 
     setLoading(false)
@@ -41,7 +41,7 @@ export default function RecuperarSenhaPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-emerald-50/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-3xl font-bold text-brand mb-1">Agenda<span className="text-gray-900">AI</span></div>
+          <div className="text-3xl font-bold text-gray-900 mb-1">Está <span className="text-brand">Agendado</span></div>
           <p className="text-gray-500 text-sm">Recuperação de senha</p>
         </div>
 
