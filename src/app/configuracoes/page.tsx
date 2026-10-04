@@ -245,14 +245,14 @@ export default function ConfiguracoesPage() {
                   <label className="label">Telefone de contato</label>
                   <div className="relative">
                     <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
-                    <input className="input pl-9" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(21) 99999-9999" />
+                    <input className="input !pl-9" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(21) 99999-9999" />
                   </div>
                 </div>
                 <div>
                   <label className="label">Endereço</label>
                   <div className="relative">
                     <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
-                    <input className="input pl-9" value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, bairro, cidade" />
+                    <input className="input !pl-9" value={address} onChange={e => setAddress(e.target.value)} placeholder="Rua, número, bairro, cidade" />
                   </div>
                 </div>
                 <button onClick={saveEmpresa} disabled={savingEmpresa} className="btn-primary flex items-center gap-2 w-full justify-center">
