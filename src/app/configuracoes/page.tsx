@@ -325,9 +325,9 @@ export default function ConfiguracoesPage() {
                   <ol className="space-y-1 text-xs list-decimal list-inside">
                     <li>Acesse <a href="https://painel.w-api.app" target="_blank" rel="noopener noreferrer" className="underline font-medium">painel.w-api.app</a> e crie uma conta</li>
                     <li>Crie uma instância no plano Lite (R$19,90/mês) — <strong>7 dias grátis para testar</strong></li>
+                    <li>Dentro da instância, escaneie o <strong>QR Code</strong> com o WhatsApp do estabelecimento</li>
                     <li>Copie o <strong>Instance ID</strong> e o <strong>Token</strong></li>
-                    <li>Cole os dados abaixo e clique em Salvar</li>
-                    <li>Clique em <strong>Gerar QR Code</strong> e escaneie com o WhatsApp</li>
+                    <li>Cole os dados abaixo e clique em <strong>Salvar credenciais</strong></li>
                   </ol>
                 </div>
 
@@ -378,7 +378,7 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
 
-            {instanceId && token && status !== 'idle' && (
+            {instanceId && token && status === 'connected' && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-brand-light to-white">
                   <div className="flex items-center gap-3">
