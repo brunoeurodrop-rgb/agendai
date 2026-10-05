@@ -378,7 +378,7 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
 
-            {instanceId && token && (
+            {instanceId && token && status !== 'idle' && (
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-brand-light to-white">
                   <div className="flex items-center gap-3">
