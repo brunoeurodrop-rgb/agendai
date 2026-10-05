@@ -37,13 +37,14 @@ export async function PATCH(req: NextRequest) {
   if (!await checkAdmin()) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
   const body = await req.json()
-  const { org_id, plan, trial_ends_at, limite_profissionais, limite_agendamentos } = body
+  const { org_id, plan, trial_ends_at, stripe_current_period_end, limite_profissionais, limite_agendamentos } = body
 
   if (!org_id) return NextResponse.json({ error: 'org_id obrigatório' }, { status: 400 })
 
   const admin = createAdminSupabaseClient()
   const payload: any = { plan }
   if (trial_ends_at) payload.trial_ends_at = trial_ends_at
+  if (stripe_current_period_end) payload.stripe_current_period_end = stripe_current_period_end
   payload.limite_profissionais = limite_profissionais ?? null
   payload.limite_agendamentos = limite_agendamentos ?? null
 
