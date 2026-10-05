@@ -137,17 +137,6 @@ export default function PlanosPage() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto mt-4">
-        <div className="rounded-2xl p-6 border border-dashed border-gray-300 bg-gray-50 text-center">
-          <div className="font-bold text-gray-700 mb-1">Precisa de mais?</div>
-          <p className="text-sm text-gray-500 mb-4">Para redes com múltiplas unidades ou volume alto de atendimentos, temos uma solução personalizada.</p>
-          <a href="https://wa.me/5521990760217?text=Ol%C3%A1%2C+tenho+interesse+em+um+plano+personalizado+do+Est%C3%A1+Agendado"
-            target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-medium px-6 py-2.5 rounded-xl hover:bg-gray-700 transition-colors">
-            Falar com consultor
-          </a>
-        </div>
-      </div>
       <p className="mt-6 text-center text-xs text-gray-400">Todos os planos incluem atualizações gratuitas e suporte via WhatsApp.</p>
     </div>
   )
