@@ -109,7 +109,7 @@ export default function ClientesPage() {
 
       <div className="relative mb-6">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        <input className="input pl-10" placeholder="Buscar por nome, telefone ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input className="input !pl-10 !text-left" style={{ paddingLeft: '2.5rem' }} placeholder="Buscar por nome, telefone ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       <div className="card overflow-hidden p-0">
