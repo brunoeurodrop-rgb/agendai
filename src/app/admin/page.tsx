@@ -59,7 +59,7 @@ export default function AdminPage() {
   const [editModal, setEditModal] = useState(false)
   const [editing, setEditing] = useState<Org | null>(null)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ plan: 'trial', trial_ends_at: '', limite_profissionais: '', limite_agendamentos: '' })
+  const [form, setForm] = useState({ plan: 'trial', trial_ends_at: '', stripe_current_period_end: '', limite_profissionais: '', limite_agendamentos: '' })
   const router = useRouter()
 
   useEffect(() => { checkAdmin() }, [])
@@ -84,6 +84,7 @@ export default function AdminPage() {
     setForm({
       plan: org.plan,
       trial_ends_at: org.trial_ends_at ? org.trial_ends_at.split('T')[0] : '',
+      stripe_current_period_end: org.stripe_current_period_end ? org.stripe_current_period_end.split('T')[0] : '',
       limite_profissionais: org.limite_profissionais != null ? String(org.limite_profissionais) : '',
       limite_agendamentos: org.limite_agendamentos != null ? String(org.limite_agendamentos) : '',
     })
@@ -95,6 +96,7 @@ export default function AdminPage() {
     setSaving(true)
     const payload: any = { plan: form.plan, org_id: editing.id }
     if (form.trial_ends_at) payload.trial_ends_at = new Date(form.trial_ends_at + 'T23:59:59-03:00').toISOString()
+if (form.stripe_current_period_end) payload.stripe_current_period_end = new Date(form.stripe_current_period_end + 'T23:59:59-03:00').toISOString()
     payload.limite_profissionais = form.limite_profissionais !== '' ? parseInt(form.limite_profissionais) : null
     payload.limite_agendamentos = form.limite_agendamentos !== '' ? parseInt(form.limite_agendamentos) : null
     const res = await fetch('/api/admin/orgs', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -396,6 +398,12 @@ export default function AdminPage() {
                 <div>
                   <label className="label">Trial válido até</label>
                   <input type="date" className="input" value={form.trial_ends_at} onChange={e => setForm(f => ({ ...f, trial_ends_at: e.target.value }))} />
+                </div>
+              )}
+              {['starter', 'pro', 'enterprise'].includes(form.plan) && (
+                <div>
+                  <label className="label">Vencimento do plano</label>
+                  <input type="date" className="input" value={form.stripe_current_period_end} onChange={e => setForm(f => ({ ...f, stripe_current_period_end: e.target.value }))} />
                 </div>
               )}
               <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
