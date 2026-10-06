@@ -346,7 +346,7 @@ export default function ConfiguracoesPage() {
                         Nossa equipe conecta seu WhatsApp por você — criação da instância, conexão, testes e configuração das automações. Tudo prontinho em poucos minutos.
                       </p>
                       <a
-                        href="https://buy.stripe.com/test_28E7sEc6y9w85KkbqYcAo00"
+                        href="https://buy.stripe.com/28E7sEc6y9w85KkbqYcAo00"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
