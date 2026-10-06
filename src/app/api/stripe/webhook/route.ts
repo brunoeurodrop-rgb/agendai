@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase-server'
 
 const PRICE_TO_PLAN: Record<string, string> = {
-  'price_1TXq9q3NsfHF8KhTMJDkvNWw': 'starter',
-  'price_1TXqA53NsfHF8KhTFHn3X7US': 'pro',
+  'price_1UNOC03NsfHF8KhT89QjeQbl': 'starter',
+  'price_1UNOCp3NsfHF8KhTmbyFcLo9': 'pro',
 }
 
 function getPeriodEnd(sub: any): string | null {
