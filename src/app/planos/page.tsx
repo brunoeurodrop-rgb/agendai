@@ -46,7 +46,7 @@ const PLANOS = [
 const ADICIONAIS = [
   { nome: 'Profissional extra', preco: 'R$14,90/mês', desc: 'Adicione mais profissionais sem trocar de plano', link: null },
   { nome: 'Pacote +200 agendamentos', preco: 'R$19,90/mês', desc: 'Para quem está crescendo rápido', link: null },
-  { nome: 'Configuração Assistida', preco: 'R$79,90 único', desc: 'Nossa equipe conecta seu WhatsApp por você', link: 'https://buy.stripe.com/test_28E7sEc6y9w85KkbqYcAo00' },
+  { nome: 'Configuração Assistida', preco: 'R$79,90 único', desc: 'Nossa equipe conecta seu WhatsApp por você', link: 'https://buy.stripe.com/28E7sEc6y9w85KkbqYcAo00' },
 ]
 
 export default function PlanosPage() {
