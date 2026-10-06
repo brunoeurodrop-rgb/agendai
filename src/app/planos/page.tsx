@@ -11,7 +11,7 @@ const PLANOS = [
     preco: 'R$49,90',
     desc: 'Ideal para começar',
     featured: false,
-    priceId: 'price_1UNOC03NsfHF8KhT89QjeQbl',
+    priceId: 'price_1UNOdy3NsfHF8KhTDw0Ca7NN',
     features: [
       '1 profissional',
       'Clientes e serviços ilimitados',
@@ -29,7 +29,7 @@ const PLANOS = [
     preco: 'R$99,90',
     desc: 'Para negócios em crescimento',
     featured: true,
-    priceId: 'price_1UNOCp3NsfHF8KhTmbyFcLo9',
+    priceId: 'price_1UNOeQ3NsfHF8KhT8AdSV2CN',
     features: [
       'Tudo do Starter, e mais:',
       'Até 5 profissionais',
