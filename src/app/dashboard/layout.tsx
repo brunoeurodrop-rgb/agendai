@@ -66,7 +66,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const Sidebar = () => (
     <aside className="flex flex-col h-full bg-white border-r border-gray-100 w-52 shrink-0">
       <div className="px-5 py-5 border-b border-gray-100">
-        <div className="text-xl font-bold text-gray-900">Está <span className="text-brand">Agendado</span></div>
+        <div className="text-xl font-bold text-brand">Está<span className="text-gray-900"> Agendado</span></div>
         <div className="flex items-center gap-1.5 mt-1">
           <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
           <span className="text-xs text-gray-400">WhatsApp ativo</span>
@@ -161,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="text-sm text-gray-400 hidden md:block" suppressHydrationWarning>{dateStr}</div>
             )}
           </div>
-          <div className="md:hidden text-lg font-bold text-gray-900">Está <span className="text-brand">Agendado</span></div>
+          <div className="md:hidden text-lg font-bold text-brand">Está<span className="text-gray-900"> Agendado</span></div>
           <div className="w-8 h-8 rounded-full bg-brand-light text-brand-dark text-xs font-semibold flex items-center justify-center" title={userName}>
             {initials}
           </div>

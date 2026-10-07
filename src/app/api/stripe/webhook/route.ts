@@ -6,10 +6,11 @@ const PRICE_TO_PLAN: Record<string, string> = {
   'price_1UNOeQ3NsfHF8KhT8AdSV2CN': 'pro',
 }
 
+const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
+
 function getPeriodEnd(sub: any): string | null {
-  // Tentar diferentes campos dependendo da versão da API
-  const ts = sub.current_period_end 
-    ?? sub.billing_cycle_anchor 
+  const ts = sub.current_period_end
+    ?? sub.billing_cycle_anchor
     ?? null
   if (!ts) {
     console.log('[Webhook] getPeriodEnd - campos disponíveis:', Object.keys(sub))
@@ -19,10 +20,8 @@ function getPeriodEnd(sub: any): string | null {
 }
 
 async function getOrgId(supabase: any, subscriptionId: string, metadataOrgId?: string): Promise<string | null> {
-  // Tentar primeiro pelo metadata
   if (metadataOrgId) return metadataOrgId
 
-  // Buscar pelo stripe_subscription_id no banco
   const { data } = await supabase
     .from('organizations')
     .select('id')
@@ -30,6 +29,111 @@ async function getOrgId(supabase: any, subscriptionId: string, metadataOrgId?: s
     .single()
 
   return data?.id || null
+}
+
+async function enviarNotificacoes(orgName: string, clientEmail: string, plano: string) {
+  const resendKey = process.env.RESEND_API_KEY
+  if (!resendKey) {
+    console.log('[Webhook] RESEND_API_KEY não configurada — emails não enviados')
+    return
+  }
+
+  const planoLabel = plano === 'pro' ? 'Pro' : 'Starter'
+  const planoPreco = plano === 'pro' ? 'R$ 99,90/mês' : 'R$ 49,90/mês'
+
+  // 1. Email para o admin
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Está Agendado <noreply@estaagendado.com.br>',
+        to: [ADMIN_EMAIL],
+        subject: `🎉 Novo cliente assinou o plano ${planoLabel}!`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+            <h2 style="color: #7c3aed;">Novo cliente no Está Agendado!</h2>
+            <p>Uma nova empresa acabou de assinar:</p>
+            <table style="width:100%; border-collapse:collapse; margin: 16px 0;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Empresa</td>
+                <td style="padding: 8px 0; font-weight: 600; font-size: 14px;">${orgName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">E-mail</td>
+                <td style="padding: 8px 0; font-weight: 600; font-size: 14px;">${clientEmail}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Plano</td>
+                <td style="padding: 8px 0; font-weight: 600; font-size: 14px;">${planoLabel} — ${planoPreco}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Data</td>
+                <td style="padding: 8px 0; font-weight: 600; font-size: 14px;">${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
+              </tr>
+            </table>
+            <p style="color: #6b7280; font-size: 13px;">Acesse o painel admin para mais detalhes.</p>
+          </div>
+        `,
+      }),
+    })
+    console.log('[Webhook] Email de notificação enviado para admin')
+  } catch (err) {
+    console.error('[Webhook] Erro ao enviar email para admin:', err)
+  }
+
+  // 2. Email de boas-vindas para o cliente
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Está Agendado <noreply@estaagendado.com.br>',
+        to: [clientEmail],
+        subject: `Bem-vindo ao Está Agendado! Seu plano ${planoLabel} está ativo 🎉`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+            <h2 style="color: #7c3aed;">Parabéns, ${orgName}! 🎉</h2>
+            <p style="color: #374151;">Seu plano <strong>${planoLabel}</strong> está ativo e pronto para uso.</p>
+
+            <div style="background: #f5f3ff; border-left: 4px solid #7c3aed; padding: 16px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; color: #5b21b6; font-weight: 600;">Plano ${planoLabel} — ${planoPreco}</p>
+              <p style="margin: 4px 0 0; color: #7c3aed; font-size: 13px;">Renovação automática mensal via cartão</p>
+            </div>
+
+            <h3 style="color: #1f2937; font-size: 16px;">Próximos passos:</h3>
+            <ol style="color: #374151; padding-left: 20px; line-height: 1.8;">
+              <li>Acesse <a href="https://estaagendado.com.br/login" style="color: #7c3aed;">estaagendado.com.br</a> e faça login</li>
+              <li>Conecte seu WhatsApp em <strong>Configurações</strong></li>
+              <li>Cadastre seus profissionais e serviços</li>
+              <li>Comece a agendar!</li>
+            </ol>
+
+            <div style="margin-top: 24px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+              <p style="margin: 0; color: #6b7280; font-size: 13px;">Precisa de ajuda? Fale com nosso suporte pelo WhatsApp:</p>
+              <a href="https://wa.me/5521990760217" style="display: inline-block; margin-top: 8px; background: #22c55e; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600;">
+                Suporte via WhatsApp
+              </a>
+            </div>
+
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">
+              Está Agendado — Sistema de agendamento inteligente com WhatsApp<br>
+              estaagendado.com.br
+            </p>
+          </div>
+        `,
+      }),
+    })
+    console.log('[Webhook] Email de boas-vindas enviado para cliente:', clientEmail)
+  } catch (err) {
+    console.error('[Webhook] Erro ao enviar email para cliente:', err)
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -68,7 +172,6 @@ export async function POST(req: NextRequest) {
           plan = PRICE_TO_PLAN[priceId] || 'starter'
           periodEnd = getPeriodEnd(subscription)
 
-          // Adicionar org_id nos metadados da assinatura para eventos futuros
           await stripe.subscriptions.update(subscriptionId, {
             metadata: { org_id: orgId }
           })
@@ -83,6 +186,26 @@ export async function POST(req: NextRequest) {
         }).eq('id', orgId)
 
         console.log('[Webhook] Plano atualizado:', plan, 'vence:', periodEnd)
+
+        // Buscar dados da org para enviar emails
+        try {
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('name, profiles(email)')
+            .eq('id', orgId)
+            .single() as any
+
+          if (org) {
+            const clientEmail = session.customer_details?.email || org.profiles?.[0]?.email || ''
+            const orgName = org.name || 'Cliente'
+            if (clientEmail) {
+              await enviarNotificacoes(orgName, clientEmail, plan)
+            }
+          }
+        } catch (err) {
+          console.error('[Webhook] Erro ao buscar org para notificação:', err)
+        }
+
         break
       }
 
@@ -91,7 +214,6 @@ export async function POST(req: NextRequest) {
         const sub = event.data.object as any
         const subscriptionId = sub.id
 
-        // Buscar org pelo metadata OU pelo subscription_id no banco
         const orgId = await getOrgId(supabase, subscriptionId, sub.metadata?.org_id)
         if (!orgId) {
           console.log('[Webhook] org_id não encontrado para subscription:', subscriptionId)
@@ -126,7 +248,6 @@ export async function POST(req: NextRequest) {
       }
 
       case 'invoice.payment_succeeded': {
-        // Atualizar period_end quando fatura é paga (renovação)
         const invoice = event.data.object as any
         const subId = invoice.subscription
         if (!subId) break
