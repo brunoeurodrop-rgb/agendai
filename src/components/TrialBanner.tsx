@@ -68,7 +68,9 @@ export default function TrialBanner() {
     if (org.plan === 'trial') {
       if (!org.trial_ends_at) { setState('vencido'); return }
       const trialEnd = new Date(org.trial_ends_at)
-      const dias = Math.floor((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      const hoje = new Date(); hoje.setHours(0,0,0,0)
+      const fim = new Date(trialEnd); fim.setHours(0,0,0,0)
+      const dias = Math.round((fim.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
       if (dias < 0) { setState('vencido'); return }
       setDiasRestantes(dias)
       if (dias <= 5) { setState('expirando'); return }
