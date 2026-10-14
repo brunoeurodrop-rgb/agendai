@@ -26,7 +26,7 @@ const nav = [
 
 const groups = ['Principal', 'Cadastros', 'Gestão']
 const ROOT_PAGES = ['/dashboard']
-const SUPORTE_URL = 'https://wa.me/5521990760217?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+Est%C3%A1+Agendado'
+const SUPORTE_URL = 'https://wa.me/5521974726513?text=Ol%C3%A1%2C+preciso+de+ajuda+com+o+Est%C3%A1+Agendado'
 const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

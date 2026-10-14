@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { format, addDays, subDays, subMonths } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { CalendarCheck, Users, Wallet, MessageCircle, Clock, ChevronRight, TrendingUp, TrendingDown, Target, Zap, Award, Star, AlertCircle, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -280,7 +279,6 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 capitalize mt-0.5">{format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
         </div>
         <Link href="/agendamento" className="btn-primary flex items-center gap-2 text-sm">
           <CalendarCheck size={15} /> Novo agendamento
