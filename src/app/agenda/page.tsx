@@ -294,7 +294,7 @@ export default function AgendaPage() {
                 const s = STATUS[a.status] || STATUS.pending
                 const isFuture = new Date(a.starts_at) > new Date()
                 return (
-                  <div key={a.id} className={`border border-gray-100 rounded-xl p-4 ${a.status === 'cancelled' ? 'opacity-50' : ''}`}>
+                  <div key={a.id} className={`bg-gray-50 border border-gray-200 rounded-xl p-4 ${a.status === 'cancelled' ? 'opacity-50' : ''}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-9 h-9 rounded-full bg-brand-light text-brand-dark text-xs font-semibold flex items-center justify-center shrink-0">
