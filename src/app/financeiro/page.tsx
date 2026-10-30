@@ -85,15 +85,19 @@ export default function FinanceiroPage() {
   async function loadAReceber() {
     const today = new Date()
     const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
-    const todayEnd = new Date(`${todayStr}T23:59:59-03:00`).toISOString()
-    const next7 = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    const next30 = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    const todayStart = new Date(`${todayStr}T00:00:00-03:00`).toISOString()
+    const next7 = new Date(`${todayStr}T00:00:00-03:00`)
+    next7.setDate(next7.getDate() + 7)
+    const next7Iso = next7.toISOString()
+    const next30 = new Date(`${todayStr}T00:00:00-03:00`)
+    next30.setDate(next30.getDate() + 30)
+    const next30Iso = next30.toISOString()
 
     const [r7, r30] = await Promise.all([
       supabase.from('appointments').select('service:services(price)')
-        .gt('starts_at', todayEnd).lte('starts_at', next7).eq('status', 'confirmed'),
+        .gte('starts_at', todayStart).lte('starts_at', next7Iso).eq('status', 'confirmed'),
       supabase.from('appointments').select('service:services(price)')
-        .gt('starts_at', todayEnd).lte('starts_at', next30).eq('status', 'confirmed'),
+        .gte('starts_at', todayStart).lte('starts_at', next30Iso).eq('status', 'confirmed'),
     ])
 
     setAReceber7((r7.data || []).reduce((s, a: any) => s + (a.service?.price || 0), 0))
