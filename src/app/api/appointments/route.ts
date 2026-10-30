@@ -126,16 +126,28 @@ export async function POST(req: NextRequest) {
     const startsAt = new Date(starts_at)
     const endsAt = new Date(startsAt.getTime() + svcCheck.data.duration_min * 60000)
 
-    // Verificar conflito de horário
-    const { data: conflict } = await supabase
+    // Verificar conflito de horário do profissional
+    const { data: conflictProf } = await supabase
       .from('appointments').select('id')
       .eq('professional_id', professional_id)
       .not('status', 'in', '(cancelled)')
       .lt('starts_at', endsAt.toISOString())
       .gt('ends_at', startsAt.toISOString())
 
-    if (conflict && conflict.length > 0) {
+    if (conflictProf && conflictProf.length > 0) {
       return NextResponse.json({ error: 'Horário já ocupado para este profissional' }, { status: 409 })
+    }
+
+    // Verificar conflito de horário do cliente
+    const { data: conflictCustomer } = await supabase
+      .from('appointments').select('id')
+      .eq('customer_id', customer_id)
+      .not('status', 'in', '(cancelled)')
+      .lt('starts_at', endsAt.toISOString())
+      .gt('ends_at', startsAt.toISOString())
+
+    if (conflictCustomer && conflictCustomer.length > 0) {
+      return NextResponse.json({ error: 'Este cliente já possui um agendamento neste horário' }, { status: 409 })
     }
 
     const { data: appt, error } = await supabase
