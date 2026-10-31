@@ -117,7 +117,7 @@ async function enviarNotificacoes(orgName: string, clientEmail: string, plano: s
 
             <div style="margin-top: 24px; padding: 16px; background: #f9fafb; border-radius: 8px;">
               <p style="margin: 0; color: #6b7280; font-size: 13px;">Precisa de ajuda? Fale com nosso suporte pelo WhatsApp:</p>
-              <a href="https://wa.me/5521990760217" style="display: inline-block; margin-top: 8px; background: #22c55e; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600;">
+              <a href="https://wa.me/5521966852030" style="display: inline-block; margin-top: 8px; background: #22c55e; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600;">
                 Suporte via WhatsApp
               </a>
             </div>

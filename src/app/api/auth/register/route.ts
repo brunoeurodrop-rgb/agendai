@@ -61,6 +61,7 @@ async function enviarEmailsCadastro(name: string, email: string, company: string
           <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;">
             <h2 style="color:#009E76;">Olá, ${name}! Bem-vindo ao Está Agendado 👋</h2>
             <p style="color:#374151;">Sua conta foi criada com sucesso. Você tem <strong>14 dias grátis</strong> para explorar todos os recursos.</p>
+
             <div style="background:#E0FFF6;border-left:4px solid #009E76;padding:16px;border-radius:8px;margin:20px 0;">
               <p style="margin:0;color:#007a5a;font-weight:600;">Por onde começar:</p>
               <ol style="color:#374151;padding-left:20px;line-height:2;margin:8px 0 0;">
@@ -70,8 +71,10 @@ async function enviarEmailsCadastro(name: string, email: string, company: string
                 <li>Faça seu primeiro agendamento!</li>
               </ol>
             </div>
+
             <p style="color:#374151;">Qualquer dúvida, fale com a gente pelo WhatsApp:</p>
-            <a href="https://wa.me/5521990760217" style="display:inline-block;background:#009E76;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Suporte via WhatsApp</a>
+            <a href="https://wa.me/5521966852030" style="display:inline-block;background:#009E76;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Suporte via WhatsApp</a>
+
             <p style="color:#9ca3af;font-size:12px;margin-top:32px;">Está Agendado — Sistema de agendamento com WhatsApp<br>estaagendado.com.br</p>
           </div>
         `,

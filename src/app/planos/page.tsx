@@ -126,7 +126,7 @@ export default function PlanosPage() {
                   Contratar
                 </a>
               ) : (
-                <a href="https://wa.me/5521990760217?text=Ol%C3%A1%2C+tenho+interesse+em+um+recurso+adicional+do+Est%C3%A1+Agendado"
+                <a href="https://wa.me/5521966852030?text=Ol%C3%A1%2C+tenho+interesse+em+um+recurso+adicional+do+Est%C3%A1+Agendado"
                   target="_blank" rel="noopener noreferrer"
                   className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-medium hover:bg-gray-50 transition-colors inline-block">
                   Falar com suporte

@@ -349,8 +349,14 @@ export default function DashboardPage() {
           </div>
           <div className="card">
             <div className="flex items-center gap-2 mb-3"><div className="bg-blue-50 p-1.5 rounded-lg"><Clock size={15} className="text-blue-600" /></div><span className="text-xs text-gray-500">Próximos</span></div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{upcomingAppts.length}</div>
-            <span className="text-xs text-gray-400">nos próximos 7 dias</span>
+            {upcomingAppts.length > 0 ? (
+              <>
+                <div className="text-2xl font-bold text-gray-900 mb-1">{upcomingAppts.length}</div>
+                <span className="text-xs text-gray-400">nos próximos 7 dias</span>
+              </>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">Nenhum agendamento nos próximos 7 dias</p>
+            )}
           </div>
         </div>
       </div>
@@ -395,7 +401,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {allAppts.slice(0, 8).map(a => {
+              {allAppts.slice(0, 10).map(a => {
                 const s = statusConfig[a.status] || statusConfig.pending
                 const dateLabel = formatDateShort(a.starts_at)
                 const isToday = dateLabel === 'Hoje'
