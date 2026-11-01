@@ -7,7 +7,7 @@ import Link from 'next/link'
 const ADMIN_EMAIL = 'bkpimenta81@gmail.com'
 
 const PLANO_NIVEL: Record<string, number> = {
-  trial: 0,
+  trial: 3, // trial tem acesso a todos os menus (limite de agendamentos ainda se aplica)
   starter: 1,
   pro: 2,
   enterprise: 3,
