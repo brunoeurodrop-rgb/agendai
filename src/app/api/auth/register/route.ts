@@ -73,7 +73,7 @@ async function enviarEmailsCadastro(name: string, email: string, company: string
             </div>
 
             <p style="color:#374151;">Qualquer dúvida, fale com a gente pelo WhatsApp:</p>
-            <a href="https://wa.me/5521966852030" style="display:inline-block;background:#009E76;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Suporte via WhatsApp</a>
+            <a href="https://wa.me/5521966852030?text=Ol%C3%A1%2C+acabei+de+me+cadastrar+no+Est%C3%A1+Agendado+e+gostaria+de+ajuda+para+come%C3%A7ar." style="display:inline-block;background:#009E76;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Suporte via WhatsApp</a>
 
             <p style="color:#9ca3af;font-size:12px;margin-top:32px;">Está Agendado — Sistema de agendamento com WhatsApp<br>estaagendado.com.br</p>
           </div>
